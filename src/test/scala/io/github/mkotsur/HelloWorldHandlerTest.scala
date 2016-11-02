@@ -13,7 +13,7 @@ class HelloWorldHandlerTest extends FunSuite with ShouldMatchers {
 
     val baos: ByteArrayOutputStream = new ByteArrayOutputStream()
 
-    new HelloWorldHandler().handleInternal(new StringInputStream(input), baos)
+    new HelloWorldHandler().handleInternal(new StringInputStream(input), baos, null)
 
     baos.toString shouldBe """{"msg":"olleh"}"""
   }

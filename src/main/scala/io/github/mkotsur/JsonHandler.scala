@@ -14,11 +14,17 @@ abstract class JsonHandler[I, O](implicit decoder: Decoder[I], encoder: Encoder[
 
   def handle(x: I): O
 
-  def handleInternal(input: InputStream, output: OutputStream, ctx: Context = null): Unit = {
-    decode[I](Source.fromInputStream(input).mkString)
-      .map(handle)
-      .map(_.asJson.noSpaces)
-      .foreach(jsonStrong => output.write(jsonStrong.getBytes(Charset.defaultCharset())))
-  }
+  def handleInternal = objectHandlerToStreamHandler(handle)
+
+  type StreamHandler = (InputStream, OutputStream, Context) => Unit
+  type ObjectHandler = I => O
+
+  def objectHandlerToStreamHandler(objectHandler: ObjectHandler): StreamHandler =
+    (input: InputStream, output: OutputStream, context: Context) => {
+      decode[I](Source.fromInputStream(input).mkString)
+        .map(objectHandler)
+        .map(_.asJson.noSpaces)
+        .foreach(jsonStrong => output.write(jsonStrong.getBytes(Charset.defaultCharset())))
+    }
 
 }
