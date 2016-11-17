@@ -9,7 +9,7 @@ To define such http handler Lambda means to upload it's code and specify the ent
  **Form 1:**
  
  ```
- OutputType handler(InputType input, Context context) {
+ OutputType handle(InputType input, Context context) {
     // do stuff
     return someValue;
  }
@@ -20,7 +20,7 @@ To define such http handler Lambda means to upload it's code and specify the ent
   **Form 2:**
   
  ```
- public void handler(InputStream inputStream, OutputStream outputStream, Context context) {
+ public void handle(InputStream inputStream, OutputStream outputStream, Context context) {
     ...
  }
  ```
@@ -35,7 +35,7 @@ To define such http handler Lambda means to upload it's code and specify the ent
  
 ... so that `OutputType` and `InputType` from Form 1 can be serializable case classes composed of serializable case classes or scala primitives. This is what libraries like [Spray JSON](https://github.com/spray/spray-json) or [Circe](https://github.com/travisbrown/circe) can do out of the box when you add some implicit conversions.
   
-For instance, with Circe:
+For instance, with Circe (more about [encoding and decoding](https://travisbrown.github.io/circe/tut/codec.html)):
   
 ```scala
 import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
@@ -46,10 +46,9 @@ val person = Person("Tom", 42)
  
 println(person.asJson.noSpaces)
 // {"name": "Tom", "age": 42}
-
 ```
 
-Or, in our case, we should be able to define a handler like:
+So, for our case it would be nice to be able to define a handler like:
 
 ```scala
   class HelloWorldHandler {
@@ -61,7 +60,6 @@ Or, in our case, we should be able to define a handler like:
     def handle(ping: Ping): Pong = Pong(ping.msg.reverse)
   
   }
-
 ```
 
 Or, in other words we need a function which will take "our" friendly handler into AWS's stream-based handler... Something like:
@@ -116,7 +114,7 @@ import io.circe._
 
 ## Step 2. where we support all serializable case classes
 
-Let's get rid of `Ping` and `Pong` in `objectHandlerToStreamHandler` code, and all the boilerplate code from the class with handler function! May be, inheritance will leave us with the smallest amount of code in the handler class...
+Let's get rid of `Ping` and `Pong` in `objectHandlerToStreamHandler` code, and all the boilerplate code from the class with the handler function! May be, inheritance will leave us with the smallest amount of code in the handler class...
  
  ```scala
  import io.circe.generic.auto._
@@ -166,3 +164,8 @@ Let's get rid of `Ping` and `Pong` in `objectHandlerToStreamHandler` code, and a
  The little trick we're using here is passing implicits `implicit decoder: Decoder[I], encoder: Encoder[O]` from `HelloWorldHandler`, where the type arguments are being defined into `JsonHandler`, and that enables methods `decode[I]` and `asJson`. The arguments for those implicit parameters are coming from `io.circe.generic.auto._`.
  
  This might look not very functional, but keep in mind our hard requirement: we have to fulfill the contract of AWS, and this is done in `HelloWorldHandler::handleInternal`. In Part 2 we will see if we can do any better using more advanced usage of type parameters and macros. And in Part 3 we will see how enable [de]serialization of complex classes that can't be picked up by `circe` automatically.
+ 
+ 
+ More info:
+ 
+ A very similar example/utility library: http://yeghishe.github.io/2016/10/16/writing-aws-lambdas-in-scala.html

@@ -1,11 +1,11 @@
 
 name := "aws-lambda-scala-json-example"
 
-version := "1.0"
+version := "0.0.1"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.12.0"
 
-val circeVersion = "0.5.1"
+val circeVersion = "0.6.0"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
@@ -13,7 +13,7 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-parser"
 ).map(_ % circeVersion)
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % "test"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
 

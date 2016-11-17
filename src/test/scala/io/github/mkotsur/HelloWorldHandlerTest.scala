@@ -3,9 +3,25 @@ package io.github.mkotsur
 import java.io.ByteArrayOutputStream
 
 import com.amazonaws.util.StringInputStream
+import io.github.mkotsur.HelloWorldHandlerTest.HelloWorldHandler
+import io.github.mkotsur.aws.handler.JsonHandler
 import org.scalatest._
 
-class HelloWorldHandlerTest extends FunSuite with ShouldMatchers {
+object HelloWorldHandlerTest {
+
+  import io.circe.generic.auto._
+
+  class HelloWorldHandler extends JsonHandler[Ping, Pong] {
+    override def handleJson(ping: Ping): Pong = Pong(ping.msg.reverse)
+  }
+
+  case class Ping(msg: String)
+
+  case class Pong(msg: String)
+
+}
+
+class HelloWorldHandlerTest extends FunSuite with Matchers {
 
   test("testHandle") {
 
@@ -13,7 +29,7 @@ class HelloWorldHandlerTest extends FunSuite with ShouldMatchers {
 
     val baos: ByteArrayOutputStream = new ByteArrayOutputStream()
 
-    new HelloWorldHandler().handleInternal(new StringInputStream(input), baos, null)
+    new HelloWorldHandler().handle(new StringInputStream(input), baos, null)
 
     baos.toString shouldBe """{"msg":"olleh"}"""
   }
