@@ -1,0 +1,2 @@
+- Add scalastyle
+- Merge ProxyJsonHandler, ProxyRequestHandler and JsonHandler
