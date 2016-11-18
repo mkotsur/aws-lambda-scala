@@ -1,6 +1,6 @@
 
-name := "aws-lambda-scala-json-example"
-
+name := "aws-lambda-scala"
+organization := "io.github.mkotsur"
 version := "0.0.1"
 
 scalaVersion := "2.12.0"
@@ -25,3 +25,6 @@ libraryDependencies += "com.amazonaws" % "aws-java-sdk-cloudsearch" % "1.11.25"
 libraryDependencies += "com.amazonaws" % "aws-java-sdk-ses" % "1.11.25"
 
 libraryDependencies += "log4j" % "log4j" % "1.2.17"
+
+
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
