@@ -18,7 +18,3 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.1.0"
-
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-log4j" % "1.0.0"
-
-libraryDependencies += "log4j" % "log4j" % "1.2.17"
