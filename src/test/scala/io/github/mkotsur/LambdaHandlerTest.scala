@@ -4,24 +4,24 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
-import io.github.mkotsur.JsonHandlerTest.{PingPongHandler, PingStringHandler, StringPongHandler}
-import io.github.mkotsur.aws.handler.JsonHandler
+import io.github.mkotsur.LambdaHandlerTest.{PingPongHandler, PingStringHandler, StringPongHandler}
+import io.github.mkotsur.aws.handler.LambdaHandler
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 import io.circe.generic.auto._
 
-object JsonHandlerTest {
+object LambdaHandlerTest {
 
-  class PingPongHandler extends JsonHandler[Ping, Pong] {
-    override def handleJson(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
+  class PingPongHandler extends LambdaHandler[Ping, Pong] {
+    override def handle(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
   }
 
-  class StringPongHandler extends JsonHandler[String, Pong] {
-    override def handleJson(input: String): Pong = Pong(input.toUpperCase())
+  class StringPongHandler extends LambdaHandler[String, Pong] {
+    override def handle(input: String): Pong = Pong(input.toUpperCase())
   }
 
-  class PingStringHandler extends JsonHandler[Ping, String] {
-    override def handleJson(input: Ping): String = input.inputMsg.toLowerCase()
+  class PingStringHandler extends LambdaHandler[Ping, String] {
+    override def handle(input: Ping): String = input.inputMsg.toLowerCase()
   }
 
   case class Ping(inputMsg: String)
@@ -30,7 +30,7 @@ object JsonHandlerTest {
 
 }
 
-class JsonHandlerTest extends FunSuite with Matchers with MockitoSugar {
+class LambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
 
   test("should convert input/output to/from case classes") {
 

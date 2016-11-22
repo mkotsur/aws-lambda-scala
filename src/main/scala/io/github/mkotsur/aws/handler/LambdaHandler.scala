@@ -8,11 +8,11 @@ import com.amazonaws.services.lambda.runtime.Context
 import io.circe._
 import io.circe.parser._
 import io.circe.syntax._
-import io.github.mkotsur.aws.handler.JsonHandler.{CanDecode, CanEncode, ObjectHandler, ReadStream, WriteStream}
+import io.github.mkotsur.aws.handler.LambdaHandler.{CanDecode, CanEncode, ObjectHandler, ReadStream, WriteStream}
 
 import scala.io.Source
 
-object JsonHandler {
+object LambdaHandler {
 
   type ReadStream[I] = InputStream => Either[Error, I]
 
@@ -61,15 +61,16 @@ object JsonHandler {
 
 }
 
-abstract class JsonHandler[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
+abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
 
   private type StreamHandler = (InputStream, OutputStream, Context) => Unit
 
-  def handleJson(x: I): O
+  // This method should be overriden
+  protected def handle(x: I): O
 
   // This function will ultimately be used as the external handler
   final def handle(i: InputStream, o: OutputStream, c: Context): Unit =
-    objectHandlerToStreamHandler(canDecode.readStream, handleJson, canEncode.writeStream)(i, o, c)
+    objectHandlerToStreamHandler(canDecode.readStream, handle, canEncode.writeStream)(i, o, c)
 
   protected def objectHandlerToStreamHandler(readStream: ReadStream[I],
                                              objectHandler: ObjectHandler[I, O],

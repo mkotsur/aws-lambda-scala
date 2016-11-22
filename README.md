@@ -5,21 +5,25 @@
 Writing a handler for AWS lambda in Scala can be as easy as...
 
 ```scala
-import io.github.mkotsur.aws.handler.JsonHandler
+package io.github.mkotsur.example
+
+import io.github.mkotsur.aws.handler.LambdaHandler
 import io.circe.generic.auto._
 
 case class Ping(inputMsg: String)
 
 case class Pong(outputMsg: String)
 
-class PingPongHandler extends JsonHandler[Ping, Pong] {
+class PingPongHandler extends LambdaHandler[Ping, Pong] {
 
-  override def handleJson(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
+  override def handle(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
 
 }
 ```
 
-More documentations and features coming soon...
+This handler can be used in AWS Lambda as: `io.github.mkotsur.example::handle`
+
+More documentations, examples and features coming soon...
 
 ## Adding to your project
 

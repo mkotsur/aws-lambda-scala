@@ -5,8 +5,8 @@ import io.circe.parser.decode
 import io.circe.{Decoder, Encoder}
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
-abstract class ProxyJsonHandler[I, O](implicit decoder: Decoder[I], encoder: Encoder[O]) extends
-  JsonHandler[ProxyRequest, ProxyResponse] {
+abstract class ProxyLambdaHandler[I, O](implicit decoder: Decoder[I], encoder: Encoder[O]) extends
+  LambdaHandler[ProxyRequest, ProxyResponse] {
 
   def handleProxyJson(x: I, proxyRequest: ProxyRequest): O
 
@@ -18,6 +18,6 @@ abstract class ProxyJsonHandler[I, O](implicit decoder: Decoder[I], encoder: Enc
     }
   }
 
-  override def handleJson(x: ProxyRequest): ProxyResponse =
+  override def handle(x: ProxyRequest): ProxyResponse =
     ProxyResponse.success(handleProxyJson(requestToJson(x), x))
 }
