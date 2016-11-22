@@ -54,7 +54,6 @@ object LambdaHandler {
           throw error
         case Right(jsonString) =>
           output.write(jsonString.getBytes(UTF_8))
-          output.close()
       }
     }
   }
@@ -78,5 +77,8 @@ abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: 
     (input: InputStream, output: OutputStream, context: Context) =>
       readStream(input)
         .map(objectHandler)
-        .map(o => writeStream(output, Right(o), context))
+        .map(o => {
+          writeStream(output, Right(o), context)
+          output.close()
+        })
 }
