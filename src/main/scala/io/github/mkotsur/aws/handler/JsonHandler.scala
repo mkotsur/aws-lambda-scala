@@ -1,30 +1,54 @@
 package io.github.mkotsur.aws.handler
 
 import java.io.{InputStream, OutputStream}
+import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe._
 import io.circe.parser._
 import io.circe.syntax._
+import io.github.mkotsur.aws.handler.JsonHandler.{CanDecode, CanEncode, ObjectHandler, ReadStream, WriteStream}
 
 import scala.io.Source
 
-abstract class JsonHandler[I, O](implicit decoder: Decoder[I], encoder: Encoder[O]) {
+object JsonHandler {
 
-  def handleJson(x: I): O
+  type ReadStream[I] = InputStream => Either[Error, I]
 
-  def handle(i: InputStream, o: OutputStream, c: Context): Unit =
-    objectHandlerToStreamHandler(handleJson)(i, o, c)
+  // Might look redundant extracting this as a separate type,
+  // but it will be much easier to perform refactoring,
+  // like to return Either[Error, O] as output...
+  type ObjectHandler[I, O] = I => O
 
-  type StreamHandler = (InputStream, OutputStream, Context) => Unit
-  type ObjectHandler = I => O
+  type WriteStream[O] = (OutputStream, Either[Error, O], Context) => Unit
 
-  protected def objectHandlerToStreamHandler(objectHandler: ObjectHandler): StreamHandler =
-    (input: InputStream, output: OutputStream, context: Context) =>
-      decode[I](Source.fromInputStream(input).mkString)
-        .map(objectHandler)
-        .map(_.asJson.noSpaces) match {
+  trait CanDecode[I] {
+    def readStream: InputStream => Either[Error, I]
+  }
+
+  trait CanEncode[O] {
+    def writeStream(output: OutputStream, o: Either[Error, O], context: Context): Unit
+  }
+
+  implicit def canDecodeString = new CanDecode[String] {
+    override def readStream: (InputStream) => Either[Error, String] = is => Right(Source.fromInputStream(is).mkString)
+  }
+
+  implicit def canEncodeString = new CanEncode[String] {
+    override def writeStream(output: OutputStream, o: Either[Error, String], context: Context): Unit = o match {
+      case Left(e) => context.getLogger.log(s"Error: ${e.getMessage}")
+      case Right(s) => output.write(s.getBytes(Charset.defaultCharset()))
+    }
+  }
+
+  implicit def canDecodeCaseClasses[T](implicit decoder: Decoder[T]) = new CanDecode[T] {
+    override def readStream: (InputStream) => Either[Error, T] = is => decode[T](Source.fromInputStream(is).mkString)
+  }
+
+  implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = new CanEncode[T] {
+    override def writeStream(output: OutputStream, o: Either[Error, T], context: Context): Unit = {
+      o.map(_.asJson.noSpaces) match {
         case Left(error) =>
           context.getLogger.log(s"Error: ${error.getMessage}")
           throw error
@@ -32,4 +56,26 @@ abstract class JsonHandler[I, O](implicit decoder: Decoder[I], encoder: Encoder[
           output.write(jsonString.getBytes(UTF_8))
           output.close()
       }
+    }
+  }
+
+}
+
+abstract class JsonHandler[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
+
+  private type StreamHandler = (InputStream, OutputStream, Context) => Unit
+
+  def handleJson(x: I): O
+
+  // This function will ultimately be used as the external handler
+  final def handle(i: InputStream, o: OutputStream, c: Context): Unit =
+    objectHandlerToStreamHandler(canDecode.readStream, handleJson, canEncode.writeStream)(i, o, c)
+
+  protected def objectHandlerToStreamHandler(readStream: ReadStream[I],
+                                             objectHandler: ObjectHandler[I, O],
+                                             writeStream: WriteStream[O]): StreamHandler =
+    (input: InputStream, output: OutputStream, context: Context) =>
+      readStream(input)
+        .map(objectHandler)
+        .map(o => writeStream(output, Right(o), context))
 }

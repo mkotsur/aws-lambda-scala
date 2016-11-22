@@ -1,5 +1,4 @@
 package io.github.mkotsur.aws.handler
-import io.circe.parser._
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
