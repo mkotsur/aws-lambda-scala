@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 
+libraryDependencies += "org.mockito" % "mockito-core" % "2.2.22"
+
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.1.0"

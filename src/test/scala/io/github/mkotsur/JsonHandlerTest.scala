@@ -7,10 +7,10 @@ import com.amazonaws.util.StringInputStream
 import io.github.mkotsur.JsonHandlerTest.{PingPongHandler, PingStringHandler, StringPongHandler}
 import io.github.mkotsur.aws.handler.JsonHandler
 import org.scalatest._
+import org.scalatest.mockito.MockitoSugar
+import io.circe.generic.auto._
 
 object JsonHandlerTest {
-
-  import io.circe.generic.auto._
 
   class PingPongHandler extends JsonHandler[Ping, Pong] {
     override def handleJson(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
@@ -30,14 +30,14 @@ object JsonHandlerTest {
 
 }
 
-class JsonHandlerTest extends FunSuite with Matchers {
+class JsonHandlerTest extends FunSuite with Matchers with MockitoSugar {
 
   test("should convert input/output to/from case classes") {
 
     val is = new StringInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    new PingPongHandler().handle(is, os, null)
+    new PingPongHandler().handle(is, os, mock[Context])
 
     os.toString shouldBe """{"outputMsg":"olleh"}"""
   }
@@ -46,12 +46,12 @@ class JsonHandlerTest extends FunSuite with Matchers {
     val handlerClass = Class.forName(classOf[PingPongHandler].getName)
     val handlerMethod =   handlerClass.getMethod("handle", classOf[InputStream], classOf[OutputStream], classOf[Context])
 
-    val handlerInstance = handlerClass.getConstructors.head.newInstance()
+    val handlerInstance = handlerClass.getConstructor().newInstance()
 
     val is = new StringInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    handlerMethod.invoke(handlerInstance, is, os, null)
+    handlerMethod.invoke(handlerInstance, is, os, mock[Context])
 
     os.toString shouldBe """{"outputMsg":"olleh"}"""
   }
@@ -60,7 +60,7 @@ class JsonHandlerTest extends FunSuite with Matchers {
     val is = new StringInputStream("hello")
     val os = new ByteArrayOutputStream()
 
-    new StringPongHandler().handle(is, os, null)
+    new StringPongHandler().handle(is, os, mock[Context])
 
     os.toString shouldBe """{"outputMsg":"HELLO"}"""
   }
@@ -69,7 +69,7 @@ class JsonHandlerTest extends FunSuite with Matchers {
     val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
-    new PingStringHandler().handle(is, os, null)
+    new PingStringHandler().handle(is, os, mock[Context])
 
     os.toString shouldBe "hello"
   }
