@@ -30,3 +30,7 @@ More documentations, examples and features coming soon...
 ```sbt
 libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.3"
 ```
+
+# Lessons learned
+
+Don't define a companion object for the handler class. AWS won't appreciat that.

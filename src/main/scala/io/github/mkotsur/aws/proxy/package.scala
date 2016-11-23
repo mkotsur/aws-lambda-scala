@@ -1,8 +1,5 @@
 package io.github.mkotsur.aws
 
-import io.circe.Encoder
-import io.circe.syntax._
-
 package object proxy {
   case class RequestContextAuthorizer(
                                        principalId: String
@@ -19,30 +16,27 @@ package object proxy {
 
   case class RequestInput(body: String)
 
-  case class ProxyRequest(path: String,
+  case class ProxyRequest[T](path: String,
                           httpMethod: String,
-                          headers: Map[String, String] = Map.empty,
+                          headers: Option[Map[String, String]] = None,
                           queryStringParameters: Option[Map[String, String]] = None,
                           stageVariables: Option[Map[String, String]] = None,
-                          body: Option[String] = None,
+                          body: Option[T] = None,
                           requestContext: RequestContext = RequestContext()
                          )
 
-  case class ProxyResponse(
+  case class ProxyResponse[T](
                             statusCode: Int,
-                            headers: Map[String, String] = Map.empty,
-                            body: Option[String] = None
+                            headers: Option[Map[String, String]] = None,
+                            body: Option[T] = None
                           )
 
   object ProxyResponse {
 
-    def success[B](body: B)(implicit encoder: Encoder[B]): ProxyResponse = ProxyResponse(
+    def success[B](body: Option[B] = None): ProxyResponse[B] = ProxyResponse[B](
       statusCode = 200,
-      headers = Map("Access-Control-Allow-Origin" -> "*"),
-      body = body match {
-        case _: String => Some(body.toString)
-        case _ => Some(body.asJson.noSpaces)
-      }
+      headers = Some(Map("Access-Control-Allow-Origin" -> "*")),
+      body = body
     )
   }
 

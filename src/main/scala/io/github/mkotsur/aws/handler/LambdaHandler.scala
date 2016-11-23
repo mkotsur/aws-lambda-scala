@@ -74,11 +74,12 @@ abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: 
   protected def objectHandlerToStreamHandler(readStream: ReadStream[I],
                                              objectHandler: ObjectHandler[I, O],
                                              writeStream: WriteStream[O]): StreamHandler =
-    (input: InputStream, output: OutputStream, context: Context) =>
-      readStream(input)
-        .map(objectHandler)
-        .map(o => {
-          writeStream(output, Right(o), context)
+    (input: InputStream, output: OutputStream, context: Context) => {
+      readStream(input) match {
+        case Left(error) => throw new RuntimeException(error)
+        case Right(obj) =>
+          writeStream(output, Right(objectHandler(obj)), context)
           output.close()
-        })
+      }
+    }
 }

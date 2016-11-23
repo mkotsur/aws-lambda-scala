@@ -1,5 +1,4 @@
-{"message": "Hello me!",
-  "input": {
+{
     "resource": "/{proxy+}",
     "path": "/hello/world",
     "httpMethod": "POST",
@@ -55,6 +54,5 @@
       "httpMethod": "POST",
       "apiId": "gy415nuibc"
     },
-    "body": "{\r\n\t\"a\": 1\r\n}"
-  }
+    "body": "raw-body"
 }

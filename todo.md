@@ -1,3 +1,4 @@
+- Support futures !
 - Write an example for Strings
 - Write an example for InputStreams
 - Write an example for OutputStreams
