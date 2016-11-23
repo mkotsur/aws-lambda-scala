@@ -1,2 +1,5 @@
-- Add scalastyle
+- Write an example for Strings
+- Write an example for InputStreams
+- Write an example for OutputStreams
 - Merge ProxyJsonHandler, ProxyRequestHandler and JsonHandler
+- Document proxy integration
