@@ -28,7 +28,7 @@ More documentations, examples and features coming soon...
 ## Adding to your project
 
 ```sbt
-libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.3"
+libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.4"
 ```
 
 # Lessons learned
