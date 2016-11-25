@@ -4,14 +4,14 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
+import io.circe.generic.auto._
 import io.github.mkotsur.LambdaHandlerTest._
 import io.github.mkotsur.aws.handler.LambdaHandler
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
-import io.circe.generic.auto._
-import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
-import scala.io.Source
+// TODO: should fail to compile instead of giving wrong values
+import io.github.mkotsur.aws.handler.LambdaHandler.string._
 
 object LambdaHandlerTest {
 
@@ -25,20 +25,6 @@ object LambdaHandlerTest {
 
   class PingStringHandler extends LambdaHandler[Ping, String] {
     override def handle(input: Ping): String = input.inputMsg.toLowerCase()
-  }
-
-  class ProxyRawHandler extends LambdaHandler[ProxyRequest[String], ProxyResponse[String]] {
-    override protected def handle(input: ProxyRequest[String]): ProxyResponse[String] = {
-      ProxyResponse(200, None, input.body.map(_.toUpperCase()))
-    }
-  }
-
-  class ProxyCaseClassHandler extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
-    override protected def handle(input: ProxyRequest[Ping]): ProxyResponse[Pong] = {
-      ProxyResponse(200, None, input.body.map { ping =>
-        Pong(ping.inputMsg.length.toString)
-      })
-    }
   }
 
   case class Ping(inputMsg: String)
@@ -90,32 +76,5 @@ class LambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
 
     os.toString shouldBe "hello"
   }
-
-  test("should handle request and response classes with body of raw type") {
-
-    val s = Source.fromResource("proxyInput-raw.json")
-
-    val is = new StringInputStream(s.mkString)
-    val os = new ByteArrayOutputStream()
-
-    new ProxyRawHandler().handle(is, os, mock[Context])
-
-    os.toString should startWith("{")
-    os.toString should include("RAW-BODY")
-    os.toString should endWith("}")
-  }
-
-//  test("should handle request and response classes with body of case classes") {
-//    val s = Source.fromResource("proxyInput-case-class.json")
-//
-//    val is = new StringInputStream(s.mkString)
-//    val os = new ByteArrayOutputStream()
-//
-//    new ProxyCaseClassHandler().handle(is, os, mock[Context])
-//
-//    os.toString should startWith("{")
-//    os.toString should include("\"outputMsg\": \"4\"")
-//    os.toString should endWith("}")
-//  }
 
 }
