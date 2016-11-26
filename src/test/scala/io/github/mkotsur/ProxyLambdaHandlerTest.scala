@@ -1,39 +1,39 @@
 package io.github.mkotsur
 
-import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
+import java.io.ByteArrayOutputStream
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
 import io.github.mkotsur.aws.handler.LambdaHandler
-import org.scalatest.{FunSuite, Matchers}
+import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{FunSuite, Matchers}
 
 import scala.io.Source
-import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
 object ProxyLambdaHandlerTest {
   object raw {
-    import io.circe.generic.auto._
     import LambdaHandler._
+    import io.circe.generic.auto._
 
     class ProxyRawHandler extends LambdaHandler[ProxyRequest[String], ProxyResponse[String]] {
-      override protected def handle(input: ProxyRequest[String]): ProxyResponse[String] = {
-        ProxyResponse(200, None, input.body.map(_.toUpperCase()))
+      override protected def handle(input: ProxyRequest[String]) = {
+        Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
       }
     }
 
   }
 
   object caseclass {
-    import io.circe.generic.auto._
     import LambdaHandler.proxy.canDecodeProxyRequest
+    import io.circe.generic.auto._
 
     class ProxyCaseClassHandler extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
-      override protected def handle(input: ProxyRequest[Ping]): ProxyResponse[Pong] = {
+      override protected def handle(input: ProxyRequest[Ping]) = Right(
         ProxyResponse(200, None, input.body.map { ping =>
           Pong(ping.inputMsg.length.toString)
         })
-      }
+      )
     }
   }
 

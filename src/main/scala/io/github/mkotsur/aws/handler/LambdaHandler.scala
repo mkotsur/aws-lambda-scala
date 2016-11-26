@@ -6,25 +6,21 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe._
-import io.circe.parser._
 import io.circe.generic.auto._
+import io.circe.parser._
 import io.circe.syntax._
-import io.github.mkotsur.aws.handler.LambdaHandler.{CanDecode, CanEncode, ObjectHandler, ReadStream, WriteStream}
+import io.github.mkotsur.aws.handler.LambdaHandler.{CanDecode, CanEncode}
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
 import scala.io.Source
-import scala.util.Try
 
 object LambdaHandler {
 
   type ReadStream[I] = InputStream => Either[Throwable, I]
 
-  // Might look redundant extracting this as a separate type,
-  // but it will be much easier to perform refactoring,
-  // like to return Either[Error, O] as output...
-  type ObjectHandler[I, O] = I => O
+  type ObjectHandler[I, O] = I => Either[Throwable, O]
 
-  type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Unit
+  type WriteStream[O] = (OutputStream, O, Context) => Unit
 
   trait CanDecode[I] {
     def readStream: ReadStream[I]
@@ -76,15 +72,13 @@ object LambdaHandler {
     }
 
     implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = new CanEncode[ProxyResponse[T]] {
-      override def writeStream = (output, o, context) => {
-        o.foreach { proxyResponse =>
-          val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
+      override def writeStream = (output, proxyResponse, context) => {
+        val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
 
-          ProxyResponse[String](
-            proxyResponse.statusCode, proxyResponse.headers,
-            encodedBodyOption
-          ).asJson.noSpaces
-        }
+        ProxyResponse[String](
+          proxyResponse.statusCode, proxyResponse.headers,
+          encodedBodyOption
+        ).asJson.noSpaces
       }
     }
   }
@@ -95,10 +89,8 @@ object LambdaHandler {
     }
 
     implicit def canEncodeString = new CanEncode[String] {
-      override def writeStream: WriteStream[String] = (output, o, context) => o match {
-        case Left(e) => context.getLogger.log(s"Error: ${e.getMessage}")
-        case Right(s) => output.write(s.getBytes(Charset.defaultCharset()))
-      }
+      override def writeStream: WriteStream[String] = (output, s, context) =>
+        output.write(s.getBytes(Charset.defaultCharset()))
     }
   }
 
@@ -107,14 +99,9 @@ object LambdaHandler {
   }
 
   implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = new CanEncode[T] {
-    override def writeStream: WriteStream[T] = (output, o, context) => {
-      o.map(_.asJson.noSpaces) match {
-        case Left(error) =>
-          context.getLogger.log(s"Error: ${error.getMessage}")
-          throw error
-        case Right(jsonString) =>
-          output.write(jsonString.getBytes(UTF_8))
-      }
+    override def writeStream: WriteStream[T] = (output, o, _) => {
+      val jsonString = o.asJson.noSpaces
+      output.write(jsonString.getBytes(UTF_8))
     }
   }
 
@@ -125,23 +112,18 @@ abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: 
   private type StreamHandler = (InputStream, OutputStream, Context) => Unit
 
   // This method should be overriden
-  protected def handle(x: I): O
+  protected def handle(i: I): Either[Throwable, O]
 
   // This function will ultimately be used as the external handler
-  final def handle(i: InputStream, o: OutputStream, c: Context): Unit =
-    objectHandlerToStreamHandler(canDecode.readStream, handle, canEncode.writeStream)(i, o, c)
-
-  protected def objectHandlerToStreamHandler(readStream: ReadStream[I],
-                                             objectHandler: ObjectHandler[I, O],
-                                             writeStream: WriteStream[O]): StreamHandler =
-    (input: InputStream, output: OutputStream, context: Context) => {
-      val readEither = readStream(input)
-
-      readEither match {
-        case Left(error) => throw error
-        case Right(obj) =>
-          writeStream(output, Try(objectHandler(obj)).toEither, context)
-          output.close()
-      }
+  final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
+    canDecode.readStream(input).flatMap(handle) match {
+      case Right(handled) =>
+        canEncode.writeStream(output, handled, context)
+      case Left(e) =>
+        throw e
     }
+
+    output.close()
+  }
+
 }

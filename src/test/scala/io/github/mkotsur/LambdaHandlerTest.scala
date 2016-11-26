@@ -16,15 +16,15 @@ import io.github.mkotsur.aws.handler.LambdaHandler.string._
 object LambdaHandlerTest {
 
   class PingPongHandler extends LambdaHandler[Ping, Pong] {
-    override def handle(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
+    override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
   }
 
   class StringPongHandler extends LambdaHandler[String, Pong] {
-    override def handle(input: String): Pong = Pong(input.toUpperCase())
+    override def handle(input: String) = Right(Pong(input.toUpperCase()))
   }
 
   class PingStringHandler extends LambdaHandler[Ping, String] {
-    override def handle(input: Ping): String = input.inputMsg.toLowerCase()
+    override def handle(input: Ping) = Right(input.inputMsg.toLowerCase())
   }
 
   case class Ping(inputMsg: String)
