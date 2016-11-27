@@ -9,7 +9,6 @@ import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
-import io.github.mkotsur.aws.handler.LambdaHandler.{CanDecode, CanEncode}
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 
 import scala.io.Source
@@ -22,14 +21,6 @@ object LambdaHandler {
 
   type WriteStream[O] = (OutputStream, O, Context) => Unit
 
-  trait CanDecode[I] {
-    def readStream: ReadStream[I]
-  }
-
-  trait CanEncode[O] {
-    def writeStream: WriteStream[O]
-  }
-
   /**
     * The implementation of 2 following methods should most definitely be rewritten for it's ugly as sin.
     */
@@ -38,8 +29,8 @@ object LambdaHandler {
     type ProxyRequest$String = ProxyRequest[String]
     type ProxyResponse$String = ProxyResponse[String]
 
-    implicit def canDecodeProxyRequest[T](implicit decoderT: CanDecode[T]) = new CanDecode[ProxyRequest[T]] {
-      override def readStream = is => {
+    implicit def canDecodeProxyRequest[T](implicit decoderT: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] {
+      is => {
 
         val eitherPRS: Either[Throwable, ProxyRequest$String] = decode[ProxyRequest$String](Source.fromInputStream(is).mkString)
 
@@ -71,39 +62,40 @@ object LambdaHandler {
       }
     }
 
-    implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = new CanEncode[ProxyResponse[T]] {
-      override def writeStream = (output, proxyResponse, context) => {
+    implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = CanEncode.instance[ProxyResponse[T]](
+      (output, proxyResponse, context) => {
         val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
 
-        ProxyResponse[String](
-          proxyResponse.statusCode, proxyResponse.headers,
-          encodedBodyOption
-        ).asJson.noSpaces
+        output.write(
+          ProxyResponse[String](
+            proxyResponse.statusCode, proxyResponse.headers,
+            encodedBodyOption
+          ).asJson.noSpaces.getBytes
+        )
       }
-    }
+    )
   }
 
   object string {
-    implicit def canDecodeString = new CanDecode[String] {
-      override def readStream = is => Right(Source.fromInputStream(is).mkString)
-    }
+    implicit def canDecodeString = CanDecode.instance(
+      is => Right(Source.fromInputStream(is).mkString)
+    )
 
-    implicit def canEncodeString = new CanEncode[String] {
-      override def writeStream: WriteStream[String] = (output, s, context) =>
-        output.write(s.getBytes(Charset.defaultCharset()))
-    }
+    implicit def canEncodeString = CanEncode.instance[String](
+      (output, s, context) => output.write(s.getBytes)
+    )
   }
 
-  implicit def canDecodeCaseClasses[T](implicit decoder: Decoder[T]) = new CanDecode[T] {
-    override def readStream = is => decode[T](Source.fromInputStream(is).mkString)
-  }
+  implicit def canDecodeCaseClasses[T](implicit decoder: Decoder[T]) = CanDecode.instance(
+    is => decode[T](Source.fromInputStream(is).mkString)
+  )
 
-  implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = new CanEncode[T] {
-    override def writeStream: WriteStream[T] = (output, o, _) => {
+  implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = CanEncode.instance[T](
+    (output, o, _) => {
       val jsonString = o.asJson.noSpaces
       output.write(jsonString.getBytes(UTF_8))
     }
-  }
+  )
 
 }
 

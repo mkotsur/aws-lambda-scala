@@ -25,8 +25,9 @@ object ProxyLambdaHandlerTest {
   }
 
   object caseclass {
-    import LambdaHandler.proxy.canDecodeProxyRequest
     import io.circe.generic.auto._
+    import LambdaHandler._
+    import LambdaHandler.proxy._
 
     class ProxyCaseClassHandler extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
       override protected def handle(input: ProxyRequest[Ping]) = Right(
@@ -71,7 +72,7 @@ class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
     new ProxyCaseClassHandler().handle(is, os, mock[Context])
 
     os.toString should startWith("{")
-    os.toString should include("\"outputMsg\":\"4\"")
+    os.toString should include("{\\\"outputMsg\\\":\\\"4\\\"}")
     os.toString should endWith("}")
   }
 

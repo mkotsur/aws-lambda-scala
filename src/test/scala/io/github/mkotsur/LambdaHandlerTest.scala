@@ -5,6 +5,7 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
 import io.circe.generic.auto._
+import io.github.mkotsur.aws.handler.LambdaHandler._
 import io.github.mkotsur.LambdaHandlerTest._
 import io.github.mkotsur.aws.handler.LambdaHandler
 import org.scalatest._
