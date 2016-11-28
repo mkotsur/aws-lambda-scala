@@ -16,7 +16,7 @@ import scala.io.Source
 
 object LambdaHandler {
 
-  type LambdaProxyHandler[I, O] = LambdaHandler[ProxyRequest[I], ProxyResponse[O]]
+  type Proxy[I, O] = LambdaHandler[ProxyRequest[I], ProxyResponse[O]]
 
   type ReadStream[I] = InputStream => Either[Throwable, I]
 

@@ -13,17 +13,16 @@ import scala.io.Source
 
 object ProxyLambdaHandlerTest {
   object raw {
-    import LambdaHandler._
     import LambdaHandler.proxy._
     import LambdaHandler.string._
 
-    class ProxyRawHandler extends LambdaProxyHandler[String, String] {
+    class ProxyRawHandler extends LambdaHandler.Proxy[String, String] {
       override protected def handle(input: ProxyRequest[String]) = {
         Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
       }
     }
 
-    class ProxyRawHandlerWithError extends LambdaProxyHandler[String, String] {
+    class ProxyRawHandlerWithError extends LambdaHandler.Proxy[String, String] {
 
       override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
         new Error("Could not handle this request for some obscure reasons")
@@ -37,7 +36,7 @@ object ProxyLambdaHandlerTest {
     import LambdaHandler.proxy._
     import io.circe.generic.auto._
 
-    class ProxyCaseClassHandler extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
+    class ProxyCaseClassHandler extends LambdaHandler.Proxy[Ping, Pong] {
       override protected def handle(input: ProxyRequest[Ping]) = Right(
         ProxyResponse(200, None, input.body.map { ping =>
           Pong(ping.inputMsg.length.toString)
@@ -45,7 +44,7 @@ object ProxyLambdaHandlerTest {
       )
     }
 
-    class ProxyCaseClassHandlerWithError extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
+    class ProxyCaseClassHandlerWithError extends LambdaHandler.Proxy[Ping, Pong] {
       override protected def handle(input: ProxyRequest[Ping]) = Left(
         new Error("Oh boy, something went wrong...")
       )
