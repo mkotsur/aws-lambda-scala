@@ -12,12 +12,17 @@ import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 
 // TODO: should fail to compile instead of giving wrong values
+// this is used for StringPongHandler and PingStringHandler
 import io.github.mkotsur.aws.handler.LambdaHandler.string._
 
 object LambdaHandlerTest {
 
   class PingPongHandler extends LambdaHandler[Ping, Pong] {
     override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
+  }
+
+  class PingPongHandlerWithError extends LambdaHandler[Ping, Pong] {
+    override def handle(ping: Ping) = Left(new Error("Oops"))
   }
 
   class StringPongHandler extends LambdaHandler[String, Pong] {
@@ -76,6 +81,17 @@ class LambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
     new PingStringHandler().handle(is, os, mock[Context])
 
     os.toString shouldBe "hello"
+  }
+
+  test("should throw an error if it happened in the handler") {
+    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+    val os = new ByteArrayOutputStream()
+
+    val caught = intercept[Error] {
+      new PingPongHandlerWithError().handle(is, os, mock[Context])
+    }
+
+    caught.getMessage shouldEqual "Oops"
   }
 
 }

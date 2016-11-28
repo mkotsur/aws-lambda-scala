@@ -10,16 +10,19 @@ import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
+import org.apache.http.HttpStatus
 
 import scala.io.Source
 
 object LambdaHandler {
 
+  type LambdaProxyHandler[I, O] = LambdaHandler[ProxyRequest[I], ProxyResponse[O]]
+
   type ReadStream[I] = InputStream => Either[Throwable, I]
 
   type ObjectHandler[I, O] = I => Either[Throwable, O]
 
-  type WriteStream[O] = (OutputStream, O, Context) => Unit
+  type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
   /**
     * The implementation of 2 following methods should most definitely be rewritten for it's ugly as sin.
@@ -63,15 +66,26 @@ object LambdaHandler {
     }
 
     implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = CanEncode.instance[ProxyResponse[T]](
-      (output, proxyResponse, context) => {
-        val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
+      (output, proxyResponseEither, context) => {
 
-        output.write(
-          ProxyResponse[String](
-            proxyResponse.statusCode, proxyResponse.headers,
-            encodedBodyOption
-          ).asJson.noSpaces.getBytes
-        )
+        val response = proxyResponseEither match {
+          case Right(proxyResponse) =>
+            val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
+              ProxyResponse[String](
+                proxyResponse.statusCode, proxyResponse.headers,
+                encodedBodyOption
+              )
+          case Left(e) =>
+            ProxyResponse[String](
+              HttpStatus.SC_INTERNAL_SERVER_ERROR,
+              Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
+              Some(e.getMessage)
+            )
+        }
+
+        output.write(response.asJson.noSpaces.getBytes)
+
+        Right()
       }
     )
   }
@@ -82,7 +96,9 @@ object LambdaHandler {
     )
 
     implicit def canEncodeString = CanEncode.instance[String](
-      (output, s, context) => output.write(s.getBytes)
+      (output, handledEither, context) => {
+        handledEither.map { s => output.write(s.getBytes) }
+      }
     )
   }
 
@@ -91,8 +107,8 @@ object LambdaHandler {
   )
 
   implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = CanEncode.instance[T](
-    (output, o, _) => {
-      val jsonString = o.asJson.noSpaces
+    (output, handledEither, _) => handledEither map { handled =>
+      val jsonString = handled.asJson.noSpaces
       output.write(jsonString.getBytes(UTF_8))
     }
   )
@@ -108,14 +124,11 @@ abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: 
 
   // This function will ultimately be used as the external handler
   final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
-    canDecode.readStream(input).flatMap(handle) match {
-      case Right(handled) =>
-        canEncode.writeStream(output, handled, context)
-      case Left(e) =>
-        throw e
-    }
-
+    val read = canDecode.readStream(input)
+    val handled = read.flatMap(handle)
+    val written = canEncode.writeStream(output, handled, context)
     output.close()
+    written.left.foreach(e => throw e)
   }
 
 }

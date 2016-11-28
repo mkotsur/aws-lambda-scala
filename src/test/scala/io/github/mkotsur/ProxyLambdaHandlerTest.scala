@@ -14,20 +14,28 @@ import scala.io.Source
 object ProxyLambdaHandlerTest {
   object raw {
     import LambdaHandler._
-    import io.circe.generic.auto._
+    import LambdaHandler.proxy._
+    import LambdaHandler.string._
 
-    class ProxyRawHandler extends LambdaHandler[ProxyRequest[String], ProxyResponse[String]] {
+    class ProxyRawHandler extends LambdaProxyHandler[String, String] {
       override protected def handle(input: ProxyRequest[String]) = {
         Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
       }
     }
 
+    class ProxyRawHandlerWithError extends LambdaProxyHandler[String, String] {
+
+      override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
+        new Error("Could not handle this request for some obscure reasons")
+      )
+    }
+
   }
 
   object caseclass {
-    import io.circe.generic.auto._
     import LambdaHandler._
     import LambdaHandler.proxy._
+    import io.circe.generic.auto._
 
     class ProxyCaseClassHandler extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
       override protected def handle(input: ProxyRequest[Ping]) = Right(
@@ -36,8 +44,13 @@ object ProxyLambdaHandlerTest {
         })
       )
     }
-  }
 
+    class ProxyCaseClassHandlerWithError extends LambdaHandler[ProxyRequest[Ping], ProxyResponse[Pong]] {
+      override protected def handle(input: ProxyRequest[Ping]) = Left(
+        new Error("Oh boy, something went wrong...")
+      )
+    }
+  }
 
   case class Ping(inputMsg: String)
 
@@ -74,6 +87,47 @@ class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
     os.toString should startWith("{")
     os.toString should include("{\\\"outputMsg\\\":\\\"4\\\"}")
     os.toString should endWith("}")
+  }
+
+  test("should generate error response in case of error in raw handler") {
+    import ProxyLambdaHandlerTest.raw._
+    import io.circe.generic.auto._
+    import io.circe.parser._
+
+    val s = Source.fromResource("proxyInput-raw.json")
+
+    val is = new StringInputStream(s.mkString)
+    val os = new ByteArrayOutputStream()
+
+    new ProxyRawHandlerWithError().handle(is, os, mock[Context])
+
+    val response = decode[ProxyResponse[String]](os.toString)
+    response shouldEqual Right(ProxyResponse(
+      500,
+      Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
+      Some("Could not handle this request for some obscure reasons")
+    ))
+  }
+
+  test("should generate error response in case of error in case class handler") {
+    import ProxyLambdaHandlerTest.caseclass._
+    import io.circe.generic.auto._
+    import io.circe.parser._
+
+    val s = Source.fromResource("proxyInput-case-class.json")
+
+    val is = new StringInputStream(s.mkString)
+    val os = new ByteArrayOutputStream()
+
+    new ProxyCaseClassHandlerWithError().handle(is, os, mock[Context])
+
+    val response = decode[ProxyResponse[String]](os.toString)
+
+    response shouldEqual Right(ProxyResponse(
+      500,
+      Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
+      Some("Oh boy, something went wrong...")
+    ))
   }
 
 }
