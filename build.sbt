@@ -1,7 +1,7 @@
 
 name := "aws-lambda-scala"
 organization := "io.github.mkotsur"
-version := "0.0.5-SNAPSHOT"
+version := "0.0.5"
 
 scalaVersion := "2.12.0"
 
@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 
-libraryDependencies += "org.mockito" % "mockito-core" % "2.2.22"
+libraryDependencies += "org.mockito" % "mockito-core" % "2.2.22" % "test"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
 

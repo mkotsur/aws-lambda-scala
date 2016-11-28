@@ -35,7 +35,7 @@ Docs are coming soon... Feel free to look at `src/test/scala` if you want to use
 ## Adding to your project
 
 ```sbt
-libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.4"
+libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.5"
 ```
 
 # Lessons learned
