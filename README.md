@@ -16,14 +16,21 @@ case class Pong(outputMsg: String)
 
 class PingPongHandler extends LambdaHandler[Ping, Pong] {
 
-  override def handle(ping: Ping): Pong = Pong(ping.inputMsg.reverse)
+  override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
 
 }
 ```
+The input JSON will be automatically deserialized into `Ping`, and the output into `Pong`. The `handle()` method is supposed to return `Either[Throwable, Pong]`: `Right` if the input was handled correctly, and `Left` otherwise. 
 
-This handler can be used in AWS Lambda as: `io.github.mkotsur.example::handle`
+This handler can be used in AWS Lambda as: `io.github.mkotsur.example::handle`.
 
-More documentations, examples and features coming soon...
+Features:
+
+* JSON (de)serialization of case classes;
+* Plain strings are supported too;
+* [AWS API Gateway proxy integration](http://docs.aws.amazon.com/apigateway/latest/developerguide/integrating-api-with-aws-services-lambda.html);
+
+Docs are coming soon... Feel free to look at `src/test/scala` if you want to use it right now.
 
 ## Adding to your project
 
@@ -33,4 +40,4 @@ libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.4"
 
 # Lessons learned
 
-Don't define a companion object for the handler class. AWS won't appreciat that.
+Don't define a companion object for the handler class. AWS won't appreciate that.
