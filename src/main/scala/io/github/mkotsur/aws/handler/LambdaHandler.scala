@@ -85,7 +85,7 @@ object LambdaHandler {
 
         output.write(response.asJson.noSpaces.getBytes)
 
-        Right()
+        Right(())
       }
     )
   }

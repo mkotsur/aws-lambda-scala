@@ -5,6 +5,8 @@ version := "0.0.5-SNAPSHOT"
 
 scalaVersion := "2.12.0"
 
+scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
+
 val circeVersion = "0.6.0"
 
 libraryDependencies ++= Seq(
