@@ -8,47 +8,40 @@ import io.github.mkotsur.aws.handler.LambdaHandler
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSuite, Matchers}
+import io.circe.generic.auto._
+import io.circe.parser._
+import LambdaHandler._
+import LambdaHandler.proxy._
+import ProxyLambdaHandlerTest._
 
 import scala.io.Source
 
 object ProxyLambdaHandlerTest {
-  object raw {
-    import LambdaHandler._
-    import LambdaHandler.proxy._
-
-    class ProxyRawHandler extends LambdaHandler.Proxy[String, String] {
-      override protected def handle(input: ProxyRequest[String]) = {
-        Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
-      }
+  class ProxyRawHandler extends LambdaHandler.Proxy[String, String] {
+    override protected def handle(input: ProxyRequest[String]) = {
+      Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
     }
-
-    class ProxyRawHandlerWithError extends LambdaHandler.Proxy[String, String] {
-
-      override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
-        new Error("Could not handle this request for some obscure reasons")
-      )
-    }
-
   }
 
-  object caseclass {
-    import LambdaHandler._
-    import LambdaHandler.proxy._
-    import io.circe.generic.auto._
+  class ProxyRawHandlerWithError extends LambdaHandler.Proxy[String, String] {
 
-    class ProxyCaseClassHandler extends LambdaHandler.Proxy[Ping, Pong] {
-      override protected def handle(input: ProxyRequest[Ping]) = Right(
-        ProxyResponse(200, None, input.body.map { ping =>
-          Pong(ping.inputMsg.length.toString)
-        })
-      )
-    }
+    override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
+      new Error("Could not handle this request for some obscure reasons")
+    )
+  }
 
-    class ProxyCaseClassHandlerWithError extends LambdaHandler.Proxy[Ping, Pong] {
-      override protected def handle(input: ProxyRequest[Ping]) = Left(
-        new Error("Oh boy, something went wrong...")
-      )
-    }
+  class ProxyCaseClassHandler extends LambdaHandler.Proxy[Ping, Pong] {
+    override protected def handle(input: ProxyRequest[Ping]) = Right(
+      ProxyResponse(200, None, input.body.map { ping =>
+        Pong(ping.inputMsg.length.toString)
+      })
+    )
+  }
+
+  class ProxyCaseClassHandlerWithError extends LambdaHandler.Proxy[Ping, Pong] {
+    override protected def handle(input: ProxyRequest[Ping]) = Left(
+      new Error("Oh boy, something went wrong...")
+    )
   }
 
   case class Ping(inputMsg: String)
@@ -59,7 +52,6 @@ object ProxyLambdaHandlerTest {
 class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
 
   test("should handle request and response classes with body of raw type") {
-    import ProxyLambdaHandlerTest.raw._
 
     val s = Source.fromResource("proxyInput-raw.json")
 
@@ -74,7 +66,6 @@ class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should handle request and response classes with body of case classes") {
-    import ProxyLambdaHandlerTest.caseclass._
 
     val s = Source.fromResource("proxyInput-case-class.json")
 
@@ -89,9 +80,6 @@ class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should generate error response in case of error in raw handler") {
-    import ProxyLambdaHandlerTest.raw._
-    import io.circe.generic.auto._
-    import io.circe.parser._
 
     val s = Source.fromResource("proxyInput-raw.json")
 
@@ -109,9 +97,6 @@ class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should generate error response in case of error in case class handler") {
-    import ProxyLambdaHandlerTest.caseclass._
-    import io.circe.generic.auto._
-    import io.circe.parser._
 
     val s = Source.fromResource("proxyInput-case-class.json")
 
