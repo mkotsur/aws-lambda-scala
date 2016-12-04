@@ -15,6 +15,7 @@ import shapeless.Generic
 
 import scala.io.Source
 import scala.reflect.ClassTag
+import scala.runtime.ScalaRunTime
 
 object LambdaHandler {
 
@@ -77,20 +78,21 @@ object LambdaHandler {
     )
   }
 
-  private val classOfString = classOf[String]
-
   implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
     CanDecode.instance[T](
-      implicitly[ClassTag[T]].runtimeClass match {
-        case `classOfString` => is => Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
-        case _ => is => decode[T](Source.fromInputStream(is).mkString)
+      implicitly[ClassTag[T]] match {
+        case ct if ct.runtimeClass == classOf[String] =>
+          is => Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
+        case _ => is =>
+          decode[T](Source.fromInputStream(is).mkString)
       }
     )
 
   implicit def canEncodeAll[T: ClassTag](implicit encoder: Encoder[T]) = CanEncode.instance[T](
-    implicitly[ClassTag[T]].runtimeClass match {
-      case `classOfString` => (output, handledEither, _) =>
-        handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
+    implicitly[ClassTag[T]] match {
+      case ct if ct.runtimeClass == classOf[String] =>
+        (output, handledEither, _) =>
+          handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
       case _ =>
         (output, handledEither, _) => handledEither map { handled =>
           val jsonString = handled.asJson.noSpaces
