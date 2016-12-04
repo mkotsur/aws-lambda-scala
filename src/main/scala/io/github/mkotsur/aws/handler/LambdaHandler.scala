@@ -11,6 +11,7 @@ import io.circe.parser._
 import io.circe.syntax._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.apache.http.HttpStatus
+import shapeless.Generic
 
 import scala.io.Source
 import scala.reflect.ClassTag
@@ -25,49 +26,34 @@ object LambdaHandler {
 
   type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
-  /**
-    * The implementation of 2 following methods should most definitely be rewritten for it's ugly as sin.
-    */
   object proxy {
 
+    // We could definitely do something smart with these 2 types,
+    // but let's keep them here just for now to have things under control.
     type ProxyRequest$String = ProxyRequest[String]
     type ProxyResponse$String = ProxyResponse[String]
 
     implicit def canDecodeProxyRequest[T](implicit decoderT: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] {
       is => {
+        def extractBody(s: ProxyRequest$String) = s.body match {
+          case Some(bodyString) => decoderT.readStream(new ByteArrayInputStream(bodyString.getBytes)).map(Option.apply)
+          case None => Right(None)
+        }
 
-        val eitherPRS: Either[Throwable, ProxyRequest$String] = decode[ProxyRequest$String](Source.fromInputStream(is).mkString)
+        def produceProxyResponse(decodedRequest$String: ProxyRequest$String, bodyOption: Option[T]) = {
+          val reqList = Generic[ProxyRequest$String].to(decodedRequest$String)
+          Generic[ProxyRequest[T]].from((bodyOption :: reqList.reverse.tail).reverse)
+        }
 
-        eitherPRS.flatMap(prs => {
-
-          val optionEither = prs.body
-            .map(bodyString => new ByteArrayInputStream(bodyString.getBytes))
-            .map(decoderT.readStream)
-
-          val bodyEitherOption: Either[Throwable, Option[T]] = optionEither match {
-            case None => Right(None)
-            case Some(Left(l)) => Left(l)
-            case Some(Right(v)) => Right[Throwable, Option[T]](Some(v))
-          }
-
-          val newEither: Either[Throwable, ProxyRequest[T]] = bodyEitherOption.flatMap(bo => Right(ProxyRequest[T](
-            prs.path,
-            prs.httpMethod,
-            prs.headers,
-            prs.queryStringParameters,
-            prs.stageVariables,
-            bo,
-            prs.requestContext
-          )))
-
-          newEither
-        })
-
+        for (
+          decodedRequest$String <- decode[ProxyRequest$String](Source.fromInputStream(is).mkString);
+          decodedBodyOption <- extractBody(decodedRequest$String)
+        ) yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
       }
     }
 
     implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = CanEncode.instance[ProxyResponse[T]](
-      (output, proxyResponseEither, context) => {
+      (output, proxyResponseEither, _) => {
 
         val response = proxyResponseEither match {
           case Right(proxyResponse) =>

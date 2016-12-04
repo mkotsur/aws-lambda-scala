@@ -16,13 +16,14 @@ package object proxy {
 
   case class RequestInput(body: String)
 
-  case class ProxyRequest[T](path: String,
+  case class ProxyRequest[T](
+                          path: String,
                           httpMethod: String,
                           headers: Option[Map[String, String]] = None,
                           queryStringParameters: Option[Map[String, String]] = None,
                           stageVariables: Option[Map[String, String]] = None,
-                          body: Option[T] = None,
-                          requestContext: RequestContext = RequestContext()
+                          requestContext: RequestContext = RequestContext(),
+                          body: Option[T] = None
                          )
 
   case class ProxyResponse[T](
