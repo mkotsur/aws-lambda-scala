@@ -13,6 +13,7 @@ import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.apache.http.HttpStatus
 
 import scala.io.Source
+import scala.reflect.ClassTag
 
 object LambdaHandler {
 
@@ -71,10 +72,10 @@ object LambdaHandler {
         val response = proxyResponseEither match {
           case Right(proxyResponse) =>
             val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
-              ProxyResponse[String](
-                proxyResponse.statusCode, proxyResponse.headers,
-                encodedBodyOption
-              )
+            ProxyResponse[String](
+              proxyResponse.statusCode, proxyResponse.headers,
+              encodedBodyOption
+            )
           case Left(e) =>
             ProxyResponse[String](
               HttpStatus.SC_INTERNAL_SERVER_ERROR,
@@ -90,26 +91,25 @@ object LambdaHandler {
     )
   }
 
-  object string {
-    implicit def canDecodeString = CanDecode.instance(
-      is => Right(Source.fromInputStream(is).mkString)
-    )
+  private val classOfString = classOf[String]
 
-    implicit def canEncodeString = CanEncode.instance[String](
-      (output, handledEither, context) => {
-        handledEither.map { s => output.write(s.getBytes) }
+  implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
+    CanDecode.instance[T](
+      implicitly[ClassTag[T]].runtimeClass match {
+        case `classOfString` => is => Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
+        case _ => is => decode[T](Source.fromInputStream(is).mkString)
       }
     )
-  }
 
-  implicit def canDecodeCaseClasses[T](implicit decoder: Decoder[T]) = CanDecode.instance(
-    is => decode[T](Source.fromInputStream(is).mkString)
-  )
-
-  implicit def canEncodeCaseClasses[T](implicit encoder: Encoder[T]) = CanEncode.instance[T](
-    (output, handledEither, _) => handledEither map { handled =>
-      val jsonString = handled.asJson.noSpaces
-      output.write(jsonString.getBytes(UTF_8))
+  implicit def canEncodeAll[T: ClassTag](implicit encoder: Encoder[T]) = CanEncode.instance[T](
+    implicitly[ClassTag[T]].runtimeClass match {
+      case `classOfString` => (output, handledEither, _) =>
+        handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
+      case _ =>
+        (output, handledEither, _) => handledEither map { handled =>
+          val jsonString = handled.asJson.noSpaces
+          output.write(jsonString.getBytes(UTF_8))
+        }
     }
   )
 

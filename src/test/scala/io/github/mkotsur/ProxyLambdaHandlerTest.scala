@@ -13,8 +13,8 @@ import scala.io.Source
 
 object ProxyLambdaHandlerTest {
   object raw {
+    import LambdaHandler._
     import LambdaHandler.proxy._
-    import LambdaHandler.string._
 
     class ProxyRawHandler extends LambdaHandler.Proxy[String, String] {
       override protected def handle(input: ProxyRequest[String]) = {

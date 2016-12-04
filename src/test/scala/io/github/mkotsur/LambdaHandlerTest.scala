@@ -11,13 +11,9 @@ import io.github.mkotsur.aws.handler.LambdaHandler
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 
-// TODO: should fail to compile instead of giving wrong values
-// this is used for StringPongHandler and PingStringHandler
-import io.github.mkotsur.aws.handler.LambdaHandler.string._
-
 object LambdaHandlerTest {
 
-  class PingPongHandler extends LambdaHandler[Ping, Pong] {
+  class PingPongHandler extends LambdaHandler[Ping, Pong]() {
     override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
   }
 
