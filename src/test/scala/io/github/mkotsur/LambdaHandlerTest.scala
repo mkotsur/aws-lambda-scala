@@ -11,6 +11,8 @@ import io.github.mkotsur.aws.handler.LambdaHandler
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 
+import scala.util.Try
+
 object LambdaHandlerTest {
 
   class PingPongHandler extends LambdaHandler[Ping, Pong]() {
@@ -27,6 +29,20 @@ object LambdaHandlerTest {
 
   class PingStringHandler extends LambdaHandler[Ping, String] {
     override def handle(input: Ping) = Right(input.inputMsg.toLowerCase())
+  }
+
+  class PingNothingHandler extends LambdaHandler[Ping, Unit] {
+    override def handle(input: Ping) = Right()
+  }
+
+  class NothingPongHandler extends LambdaHandler[Unit, Pong] {
+    override def handle(n: Unit) = Right(Pong("nothing"))
+  }
+
+  class SeqSeqHandler extends LambdaHandler[Seq[String], Seq[Int]] {
+    override def handle(strings: Seq[String]) = Try {
+      strings.map(_.toInt)
+    }.toEither
   }
 
   case class Ping(inputMsg: String)
@@ -88,6 +104,16 @@ class LambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
     }
 
     caught.getMessage shouldEqual "Oops"
+  }
+
+  test("should support handlers of sequences") {
+    val is = new StringInputStream("""["1","42"]""")
+    val os = new ByteArrayOutputStream()
+
+    new SeqSeqHandler().handle(is, os, mock[Context])
+
+    os.toString shouldBe """[1,42]"""
+    "".reverse
   }
 
 }

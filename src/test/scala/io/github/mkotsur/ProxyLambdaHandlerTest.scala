@@ -11,7 +11,6 @@ import org.scalatest.{FunSuite, Matchers}
 import io.circe.generic.auto._
 import io.circe.parser._
 import LambdaHandler._
-import LambdaHandler.proxy._
 import ProxyLambdaHandlerTest._
 
 import scala.io.Source
