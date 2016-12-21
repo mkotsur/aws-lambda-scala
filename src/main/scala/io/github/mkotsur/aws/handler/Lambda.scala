@@ -16,9 +16,9 @@ import shapeless.Generic
 import scala.io.Source
 import scala.reflect.ClassTag
 
-object LambdaHandler {
+object Lambda {
 
-  type Proxy[I, O] = LambdaHandler[ProxyRequest[I], ProxyResponse[O]]
+  type Proxy[I, O] = Lambda[ProxyRequest[I], ProxyResponse[O]]
 
   type ReadStream[I] = InputStream => Either[Throwable, I]
 
@@ -101,9 +101,7 @@ object LambdaHandler {
 
 }
 
-abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
-
-  private type StreamHandler = (InputStream, OutputStream, Context) => Unit
+abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
 
   // This method should be overriden
   protected def handle(i: I): Either[Throwable, O]

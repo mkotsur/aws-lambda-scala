@@ -1,6 +1,6 @@
 package io.github.mkotsur.aws.handler
 
-import io.github.mkotsur.aws.handler.LambdaHandler.ReadStream
+import io.github.mkotsur.aws.handler.Lambda.ReadStream
 
 trait CanDecode[I] {
   def readStream: ReadStream[I]

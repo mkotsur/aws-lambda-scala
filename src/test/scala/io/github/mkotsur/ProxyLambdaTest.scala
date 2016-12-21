@@ -4,32 +4,32 @@ import java.io.ByteArrayOutputStream
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
-import io.github.mkotsur.aws.handler.LambdaHandler
+import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSuite, Matchers}
 import io.circe.generic.auto._
 import io.circe.parser._
-import LambdaHandler._
-import ProxyLambdaHandlerTest._
+import Lambda._
+import ProxyLambdaTest._
 
 import scala.io.Source
 
-object ProxyLambdaHandlerTest {
-  class ProxyRawHandler extends LambdaHandler.Proxy[String, String] {
+object ProxyLambdaTest {
+  class ProxyRawHandler extends Lambda.Proxy[String, String] {
     override protected def handle(input: ProxyRequest[String]) = {
       Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
     }
   }
 
-  class ProxyRawHandlerWithError extends LambdaHandler.Proxy[String, String] {
+  class ProxyRawHandlerWithError extends Lambda.Proxy[String, String] {
 
     override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
       new Error("Could not handle this request for some obscure reasons")
     )
   }
 
-  class ProxyCaseClassHandler extends LambdaHandler.Proxy[Ping, Pong] {
+  class ProxyCaseClassHandler extends Lambda.Proxy[Ping, Pong] {
     override protected def handle(input: ProxyRequest[Ping]) = Right(
       ProxyResponse(200, None, input.body.map { ping =>
         Pong(ping.inputMsg.length.toString)
@@ -37,7 +37,7 @@ object ProxyLambdaHandlerTest {
     )
   }
 
-  class ProxyCaseClassHandlerWithError extends LambdaHandler.Proxy[Ping, Pong] {
+  class ProxyCaseClassHandlerWithError extends Lambda.Proxy[Ping, Pong] {
     override protected def handle(input: ProxyRequest[Ping]) = Left(
       new Error("Oh boy, something went wrong...")
     )
@@ -48,7 +48,7 @@ object ProxyLambdaHandlerTest {
   case class Pong(outputMsg: String)
 }
 
-class ProxyLambdaHandlerTest extends FunSuite with Matchers with MockitoSugar {
+class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
 
   test("should handle request and response classes with body of raw type") {
 

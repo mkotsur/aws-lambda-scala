@@ -1,6 +1,6 @@
 package io.github.mkotsur.aws.handler
 
-import io.github.mkotsur.aws.handler.LambdaHandler.WriteStream
+import io.github.mkotsur.aws.handler.Lambda.WriteStream
 
 trait CanEncode[O] {
   def writeStream: WriteStream[O]
