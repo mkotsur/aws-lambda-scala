@@ -1,0 +1,1013 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/moon.css">
+		<link rel="stylesheet" href="css/custom.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+
+<!-- SLIDES BEGIN HERE -->
+
+				<section data-background="img/DSC_3555.jpg">
+					<h2><span class="dimmed">&nbsp;Building a generic&nbsp;</span></h2>
+					<h3><span class="dimmed">&nbsp;JSON [de]serializer&nbsp;</span></h3>
+					<h2><span class="dimmed">&nbsp;for AWS Lambda&nbsp;</span></h2>
+					<br/>
+					<br/>
+					<br/>
+					<br/>
+					<br/>
+						<small class="dimmed keyword">&nbsp;Mike Kotsur for Amsterdam.scala&nbsp;</small>
+				</section>
+
+
+				<section>
+					<h2>About me:</h2>
+						<ul>
+							<li>R&amp;D Scala dev at Elsevier;</li>
+							<li>Making life of scientists easier by prototyping innovative tools;</li>
+							<li>And testing whether the ideas were good enough.</li>
+						</ul>
+				</section>
+
+
+				<section>
+					<h2>A lot of small projects with unpredictable lifecycle</h2>
+				</section>
+
+
+				<section>
+					<h2>What is AWS Lambda?</h2>
+          <blockquote>
+            AWS Lambda is an event-driven, serverless computing platform provided by Amazon as a part of the Amazon Web Services. It is a compute service that runs code in response to events and automatically manages the compute resources required by that code.
+          </blockquote>
+          <p><small>- Wikipedia -</small></p>
+				</section>
+
+<section>
+  <p>
+    <span>INPUT </span>
+    <span class="fragment"> ➠ <b class="keyword">&#955; </b></span>
+    <span class="fragment"> ➠ OUTPUT</span>
+  </p>
+  <p class="fragment">
+    &#955; can be defined in Java, Python or JavaScript.
+  </p>
+</section>
+
+<section>
+  <h4>Defining a Lambda in Java</h4>
+<pre><code class="hljs">
+class MyLambda {
+
+  public Pong handle(Ping input) {
+
+    // do some stuff
+    return someValue;
+
+  }
+
+}
+</code></pre>
+</section>
+
+
+<section>
+  <p>
+    Where <span class="keyword">Ping</span> and <span class="keyword">Pong</span> can be:
+      <ul>
+        <li>Simple Java types (AWS Lambda supports the <span class="keyword">String</span>, <span class="keyword">Integer</span>, <span class="keyword">Boolean</span>, <span class="keyword">Map</span>, and <span class="keyword">List</span> types);</li>
+        <li>POJO (Plain Old Java Object) type;</li>
+      </ul>
+  </p>
+</section>
+
+
+<section>
+  <h4>... or</h4>
+<pre><code class="hljs">
+class MyLambda {
+
+  public void handle (InputStream inputStream,
+                      OutputStream outputStream) {
+      // read from inputStream
+      // do some stuff
+      // write to outputStream
+   }
+
+ }
+
+</code></pre>
+</section>
+
+<section>
+  <img src="./img/writing-lambda-in-scala.png" />
+</section>
+
+<section>
+  <h4>Writing lambdas in Scala (Amazon version)</h4>
+  <pre><code class="hljs">
+case class Ping(msg: String)
+
+val scalaMapper = {
+  import com.fasterxml.jackson.databind.ObjectMapper
+  import com.fasterxml.jackson.module.scala.DefaultScalaModule
+  new ObjectMapper().registerModule(new DefaultScalaModule)
+}
+
+class MyLambda {
+
+  def handle(input: InputStream, output: OutputStream): Unit = {
+
+    val ping = scalaMapper.readValue(input, classOf[Ping])
+    ...
+  }
+}
+  </code></pre>
+</section>
+
+<section data-background="img/_DSC2702.jpg">
+  <h3 class="keyword dimmed">⚒ As a developer I want my handler to be serialization-agnostic</h3>
+  <pre class="fragment"><code class="hljs">
+
+object MyLambda {
+
+  case class Ping(msg: String)
+
+  case class Pong(msg: String)
+
+}
+
+class MyLambda {
+
+  def handle(ping: Ping): Pong = Pong(ping.msg.reverse)
+
+}
+  </code></pre>
+</section>
+
+        <section>
+<h4>How can it work?</h4>
+  <pre><code class="hljs">
+// User defines
+handle: Ping => Pong
+
+// We need
+_handle: (InputStream, OutputStream) => Unit
+    </code></pre>
+
+<pre class="fragment"><code class="hljs">
+// Transforms the user-friendly function into the AWS-style function
+handle2handle: (Ping => Pong) => (InputStream, OutputStream) => Unit
+</code></pre>
+</section>
+
+
+                <section>
+<h4>Type aliases as members</h4>
+        <pre><code class="hljs">
+trait Lambda {
+
+  type ReadWriteStreams = (InputStream, OutputStream) => Unit
+
+  type ReadStream = InputStream => Ping
+
+  type WriteStream = (OutputStream, Pong) => Unit
+
+}
+        </code></pre>
+                </section>
+
+                <section>
+<h4>... and some functions</h4>
+        <pre><code class="hljs">
+trait Lambda {
+
+...
+
+    val readStream: ReadStream = ???
+
+    val writeStream: WriteStream = ???
+
+    // This will be called by AWS
+    def _handle: ReadWriteStreams = (is, os) =>
+      writeStream(os, handle(readStream(is)))
+
+    // This will be defined by "users"
+    protected def handle(ping: Ping): Pong
+
+}
+        </code></pre>
+                </section>
+        <section>
+            <blockquote>
+Circe (/ˈsɜːrsiː/; Greek: Κίρκη Kírkē [kírkɛ͜ɛ]) In Greek mythology, is a goddess of magic (or sometimes a nymph, witch, enchantress or sorceress).
+            </blockquote>
+
+            <div>
+              <img style="height: 250px;" src="http://www.maicar.com/GML/000Images/cim/circeod199gen.jpg" />
+              <div>
+                <small>- Bonaventura Genelli: Circe turns Odysseus' comrades into swines - </small>
+              </div>
+            </div>
+        </section>
+
+
+<section>
+  <h4>Circe turning <s>men into pigs</s> objects into strings, and the other way around.</h4>
+  <pre><code class="hljs">
+import io.circe._
+import io.circe.generic.auto._
+import io.circe.parser._
+import io.circe.syntax._
+
+case class Ping(msg: String)
+
+val v1 = decode[Ping]("{\"msg\": \"Foo\"}") // Right(Ping(Foo))
+val v2 = decode[Ping]("{") // Left(ParsingFailure: exhausted input)
+
+v1.map(_.msg.length) // Right(3)
+v2.map(_.msg.length) // Left(ParsingFailure: exhausted input)
+
+  </code></pre>
+</section>
+
+<section>
+  <h3>scala.Either</h3>
+  <p>Represents a value of one of two possible types (a disjoint union).</p>
+  <p>Since 2.12 is <span class="keyword">Right-biased</span>:
+    <ul>
+      <li>map</li>
+      <li>flatMap</li>
+      <li>contains</li>
+      <li>toOption</li>
+      <li>...</li>
+    </ul> <br/>
+    operate on the <span class="keyword">Right</span>-hand side.
+  </p>
+</section>
+
+
+<section>
+  <h4>Let's use it in our "API"</h4>
+  <pre><code class="hljs">
+// Handle can also fail, right?
+protected def handle(ping: Ping): Either[Throwable, Pong]
+
+// Used to be: InputStream => Ping
+type ReadStream = InputStream => Either[Throwable, Ping]
+val readStream: ReadStream = is =>
+  decode(Source.fromInputStream(is).mkString)
+
+type WriteStream = (OutputStream, Pong) => Either[Throwable, Unit]
+val writeStream: WriteStream = (os, obj) =>
+  Try(os.write(obj.asJson.noSpaces.getBytes)).toEither
+  </code></pre>
+</section>
+
+<section>
+  <h4>Just flatMap it</h4>
+  <pre><code class="hljs">
+def _handle: ReadWriteStreams = (is, os) => {
+  (for (
+    inputObject <- readStream(is);
+    outputObject <- handle(inputObject);
+    writeResult <- writeStream(os, outputObject)
+  ) yield writeResult).left.foreach { e =>
+    throw e
+  }
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>So far we've:</h4>
+  <ul>
+    <li>Created a trait;</li>
+    <li>Defined types;</li>
+    <li>Implemented <span class="keyword">readStream()</span>, <span class="keyword">writeStream</span> and <span class="keyword">_handle()</span>;</li>
+  </ul>
+</section>
+
+<section>
+  <h3>Reality check</h3>
+  <pre><code class="hljs">
+package io.github.mkotsur
+
+class MyHandler extends Lambda {
+
+  override protected def handle(ping: Ping): Pong =
+                                  Pong(ping.msg.reverse)
+
+  // def _handle: ReadWriteStreams
+  // For AWS: io.github.mkotsur.MyHandler::_handle
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h3>Boom!</h3>
+  <pre><code class="hljs">
+def _handle: ReadWriteStreams = (is, os) => {...}
+  </code></pre>
+  vs
+  <pre><code class="hljs">
+def _handle(is: InputStream, os: OutputStream): Unit = {...}
+</code></pre>
+
+</section>
+
+<section>
+  <h3>Boom!</h3>
+  <p>javap - Java class file disassembler</p>
+  <pre><code class="hljs">
+def _handle: ReadWriteStreams = (is, os, _) => {...}
+// public Function3&lt;InputStream, OutputStream, BoxedUnit&gt; _handle();
+  </code></pre>
+  vs
+  <pre><code class="hljs">
+def _handle(is: InputStream, os: OutputStream): Unit = {...}
+// public void _handle(java.io.InputStream, java.io.OutputStream);
+  </code></pre>
+</section>
+
+<section>
+  <h3>New version:</h3>
+  <pre><code class="hljs">
+def _handle(is: InputStream, os: OutputStream): Unit = {
+  (for (
+    inputObject <- readStream(is);
+    outputObject <- handle(inputObject);
+    writeResult <- writeStream(os, outputObject)
+  ) yield writeResult).left.foreach { e =>
+    throw e
+  }
+}
+  </code></pre>
+</section>
+
+<section data-background="img/DSC_3645.jpg">
+  <h3 class="dimmed keyword">⚒ As a developer I want my handler to be able to handle everything as good as Circe</h3>
+  <pre class="fragment"><code class="hljs">
+class MyLambda extends Lambda[Ping, Pong] {
+
+  def handle(ping: Ping) = ???
+
+}
+  </code></pre>
+  <pre class="fragment"><code class="hljs">
+class MyLambda extends Lambda[Seq[String], Seq[Int]] {
+
+  // ["1","42"] -> [1,42]
+  override def handle(strings: Seq[String]) = Try {
+        strings.map(_.toInt)
+      }.toEither
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>Passing a type parameter to the parent (v1)</h4>
+  <pre><code class="hljs">
+abstract class Foo {
+
+  type A
+
+  def getA: A
+
+}
+
+class MyFoo extends Foo {
+
+  override type A = Int
+
+  override def getA: Int = 43
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>Passing a type parameter to the parent (v2)</h4>
+  <pre><code class="hljs">
+abstract class Foo[A] {
+
+  def getA: A
+}
+
+class MyFoo extends Foo[Int] {
+
+  override def getA: Int = 43
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>Type safe decoding</h4>
+  <pre><code class="hljs">
+import io.circe.generic.auto._
+import io.circe.parser._
+
+decode[Date]("{\"msg\": \"Foo\"}")
+
+// Error: could not find implicit value for parameter decoder: Decoder[Date]
+// lazy val v1 = decode[Date]("{\"msg\": \"Foo\"}");//
+//                           ^
+// Error: not enough arguments for method decode:
+//      (implicit decoder: Decoder[Date])Either[Error, Date].
+// Unspecified value parameter decoder.
+// lazy val v1 = decode[Date]("{\"msg\": \"Foo\"}");//
+//                           ^
+  </code></pre>
+</section>
+
+<section>
+  <h4>Type safe decoding</h4>
+  <pre><code class="hljs">
+final def decode[A](input: String)
+                   (implicit decoder: Decoder[A]): Either[Error, A] = ...
+  </code></pre>
+  <pre class="fragment"><code class="hljs">
+import io.circe.generic.auto._
+import io.circe.parser._
+</code></pre>
+</section>
+
+<section>
+  <h4>Let's do the same for Lambda!</h4>
+  <pre><code class="hljs">
+abstract class Lambda[I, O] {
+
+  protected def handle(input: I): Either[Throwable, O]
+
+  type ReadStream = InputStream => Either[Throwable, I]
+
+  val readStream: ReadStream = is =>
+    decode[I](Source.fromInputStream(is).mkString)
+
+}
+  </code></pre>
+
+<pre class="fragment"><code class="hljs">
+// Error: could not find implicit value for parameter decoder: io.circe.Decoder[I]
+//  decode[I](Source.fromInputStream(is).mkString)
+</code></pre>
+</section>
+
+<section>
+  <h4>Lambda becomes an abstract class</h4>
+  <pre><code class="hljs">
+abstract class Lambda[I, O](implicit decoder: Decoder[I],
+                            encoder: Encoder[O]) {
+
+  protected def handle(ping: I): Either[Throwable, O]
+
+  type ReadStream = InputStream => Either[Throwable, I]
+
+  val readStream: ReadStream = is =>
+    decode[I](Source.fromInputStream(is).mkString)
+}
+  </code></pre>
+
+</section>
+
+
+<section data-background="img/DSC_3531.jpg">
+  <h3 class="dimmed keyword">⚒ As a developer I want to support raw Strings</h3>
+  <pre class="fragment"><code class="hljs">
+class MyLambda extends Lambda[String, String] {
+
+  // "foo" -> "oof"
+  public override def handle(str: String) = str.reverse
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h2>Type classes</h2>
+  <blockquote>In computer science, a type class is a type system construct that supports ad hoc polymorphism. This is achieved by adding constraints to type variables in parametrically polymorphic types.</blockquote>
+</section>
+
+<section>
+  <h2>Type classes</h2>
+
+  <p class="fragment"><b class="keyword">Decoder</b> is a trait.</p>
+  <p class="fragment"><b class="keyword">Decoder[I]</b> is a type with a parameter.</p>
+  <p class="fragment"><b class="keyword">Decoder</b> is a class of types that are decodable from JSON by Circe.</p>
+  <p class="fragment">It <u>includes</u>: <span class="keyword">case classes</span>, <span class="keyword">numbers</span>, <span class="keyword">strings</span>, etc...</p>
+  <p class="fragment">It <u>doesn't include</u>: <span class="keyword">Date</span>, <span class="keyword">Exception</span>, etc...</p>
+
+</section>
+
+<section>
+  Let's make a new one!
+  <pre><code class="hljs">
+trait CanDecode[I] {
+  def readStream: ReadStream[I]
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+trait CanDecode[I] {
+  def readStream: ReadStream[I]
+}
+  </code></pre>
+  <pre><code class="hljs">
+object CanDecode { // "Idiomatic" type class definiton
+
+  def apply[A](implicit canDecode: CanDecode[A]): CanDecode[A] =
+    canDecode
+
+  def instance[A](func: ReadStream[A]): CanDecode[A] = new CanDecode[A] {
+    override def readStream: ReadStream[A] = func
+  }
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+object Lambda {
+
+  implicit val canDecodeString = CanDecode.instance[String] { is =>
+    Right(Source.fromInputStream(is).mkString)
+  }
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+object Lambda {
+
+  implicit val canDecodeString = CanDecode.instance[String] { is =>
+    Right(Source.fromInputStream(is).mkString)
+  }
+
+  implicit def canDecodeWithCirce[T](implicit decoder: Decoder[T]) =
+    CanDecode.instance { is =>
+      decode[T](Source.fromInputStream(is).mkString)
+  }
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+abstract class Lambda[I, O]
+               (implicit decoder: CanDecode[I], encoder: CanEncode[O]) {
+
+  protected def handle(ping: I): Either[Throwable, O]
+
+  type ReadStream = InputStream => Either[Throwable, I]
+
+  type WriteStream = (OutputStream, O) => Either[Throwable, Unit]
+
+  ...
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+abstract class Lambda[I, O]
+               (implicit decoder: CanDecode[I], encoder: CanEncode[O]) {
+  ...
+
+  def _handle(is: InputStream, os: OutputStream): Unit = {
+    (for (
+      // using readStream from decoder!
+      inputObject <- decoder.readStream(is);
+      outputObject <- handle(inputObject);
+      // and writeStream from encoder!
+      writeResult <- encoder.writeStream(os, outputObject)
+    ) yield writeResult).left.foreach { e =>
+      throw e
+    }
+  }
+}
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+import io.generic.auto._
+import Lambda.canEncodeWithCirce
+import Lambda.canDecodeWithCirce
+
+class MyHandler extends Lambda[Ping, Pong] {
+
+  override protected def handle(ping: Ping) = Right(Pong(ping.msg.reverse))
+
+}
+  </code></pre>
+
+  <pre class="fragment"><code class="hljs">
+import Lambda.canDecodeString // if you put wrong imports
+import Lambda.canEncodeString // you get wrong results :-(
+
+class MyHandler extends Lambda[String, String] {
+
+  override protected def handle(msg: String) = Right(msg.reverse)
+
+}
+  </code></pre>
+
+</section>
+
+<section>
+  <h2>AWS Lambda and HTTP Gateway</h2>
+</section>
+
+<section>
+  <p>
+    <span>INPUT </span>
+    <span> ➠ <b class="keyword">&#955; </b></span>
+    <span> ➠ OUTPUT</span>
+  </p>
+</section>
+
+<section>
+  <p>
+    <span>INPUT </span>
+    <span> ➠ <b class="keyword">&#955; </b></span>
+    <span> ➠ OUTPUT</span>
+  </p>
+  <p>
+    <span class="fragment"><b class="keyword">INPUT</b> = HTTPRequest(headers, body, ...)</span> <br />
+    <code class="fragment">{ headers: [...], body: <b class="spot">"{\"msg\"}"</b> ...}</code>
+    <br />
+    <br />
+    <span class="fragment"><b class="keyword">OUTPUT</b> = HTTPResponse(status_code, headers, body, ...)</span><br />
+    <code class="fragment">{ status_code: 200, body: <b class="spot">"{\"msg\"}"</b> ...}</code>
+  </p>
+</section>
+
+<section>
+  <h4>Those need type parameters too!</h4>
+  <pre><code class="hljs">
+case class ProxyRequest[T](path: String,
+                           httpMethod: String,
+                           headers: Option[Map[String, String]] = None,
+                           queryStringParameters: Option[Map[String, String]] = None,
+                           stageVariables: Option[Map[String, String]] = None,
+                           requestContext: RequestContext = RequestContext(),
+                           body: Option[T] = None)
+
+case class ProxyResponse[T](statusCode: Int,
+                            headers: Option[Map[String, String]] = None,
+                            body: Option[T] = None)
+
+  </code></pre>
+</section>
+
+<section data-background="img/_DSC2719.jpg">
+  <h3 class="dimmed keyword">⚒ As a developer I want to encode/decode HTTP Gateway proxies</h3>
+  <pre class="fragment"><code class="hljs">
+object Lambda {
+
+  type Proxy[I, O] = Lambda[ProxyRequest[I], ProxyResponse[O]]
+
+}
+
+// Should work for non-json strings too, of course.
+class MyHandler extends Lambda.Proxy[Ping, Pong] {
+
+  override protected def handle(msg: ProxyRequest[Ping]) = Right(ProxyResponse(
+    statusCode = 200,
+    body = msg.body.map(p => Pong(p.msg.reverse))
+  ))
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>How will it work now?</h4>
+  <p class="fragment"> <b class="keyword">InputStream</b>({ ... body: "{\"msg\"}" ...})</p>
+  <pre class="fragment"><code class="hljs">
+  abstract class LambdaHandler[I, O](implicit canDecode: CanDecode[I],
+                                     canEncode: CanEncode[O])
+  </code></pre>
+  <pre class="fragment"><code class="hljs">
+  implicit def canDecodeWithCirce[T](implicit decoder: Decoder[T])
+  </code></pre>
+
+  <p class="fragment error">
+    DecodingFailure(Attempt to decode value on failed cursor, List(El(DownField(msg),false,true), El(DownField(body),true,false)))
+  </p>
+</section>
+
+<section>
+  <h4>Convenient for using, but is not adequate!</h2>
+  <pre><code class="hljs">
+case class ProxyRequest[T](
+                           ...
+                           body: Option[T] = None)
+
+case class ProxyResponse[T](...
+                            body: Option[T] = None)
+
+  </code></pre>
+</section>
+
+<section>
+  <h3>Let's extend our type class</h3>
+  <pre><code class="hljs">
+    implicit def canDecodeProxyRequest[T](implicit decoderT: CanDecode[T]) =
+      CanDecode.instance[ProxyRequest[T]] {
+        is => ???
+      }
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+    implicit def canDecodeProxyRequest[T](implicit decoderT: CanDecode[T]) =
+      CanDecode.instance[ProxyRequest[T]] {
+        is => ???
+          // Partially deserialize (keep body as String)
+          // Deserialize body into Option[T]
+          // Construct and return ProxyRequest[T]
+      }
+  </code></pre>
+</section>
+
+<section>
+  <pre><code class="hljs">
+implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) =
+  CanDecode.instance[ProxyRequest[T]] {
+    is =>
+      // Partially deserialize (keep body as String)
+      val prsEither = CanDecode[ProxyRequest[String]].readStream(is)
+      // Deserialize body into Option[T]
+      // Construct and return ProxyRequest[T]
+  }
+  </code></pre>
+</section>
+
+<section>
+  <h4>Things are getting a bit more envolved!</h2>
+  <pre><code class="hljs">
+implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) =
+  CanDecode.instance[ProxyRequest[T]] {
+    is =>
+      // Partially deserialize (keep body as String)
+      // Deserialize body into Option[T]
+      CanDecode[ProxyRequest[String]].readStream(is) flatMap { prs =>
+        val bodyObjOptionEither = prs.body match {
+          case Some(bodyString) =>
+            canDecode.readStream(new ByteArrayInputStream(bodyString.getBytes))
+            .map(Some.apply)
+          case None =>
+            Right(None)
+        }
+        // Construct and return ProxyRequest[T]
+        ...
+      }
+  }
+  </code></pre>
+</section>
+
+<section>
+  <h4>Whaaaat?</h2>
+  <pre><code class="hljs">
+// Construct and return ProxyRequest[T]
+bodyObjOptionEither map { bodyObjOption =>
+  ProxyRequest[T](
+    path = prs.path,
+    httpMethod = prs.httpMethod,
+    queryStringParameters = prs.queryStringParameters,
+    headers = prs.headers,
+    stageVariables = prs.stageVariables,
+    body = bodyObjOption
+  )
+}
+  </code></pre>
+</section>
+
+<section>
+  <h3>Shapeless</h3>
+  <p class="fragment">In <span class="keyword">ADT</span> terms, a case class is <b class="keyword">one of</b> the representations of products.</p>
+  <pre class="fragment"><code class="hljs">
+case class ProxyRequest[T](
+                path: String,
+                httpMethod: String,
+                headers: Option[Map[String, String]] = None,
+                queryStringParameters: Option[Map[String, String]] = None,
+                stageVariables: Option[Map[String, String]] = None,
+                requestContext: RequestContext = RequestContext(),
+                body: Option[T] = None
+)
+  </code></pre>
+</section>
+
+<section>
+  <h3>Shapeless</h3>
+  <p>A <span class="keyword">tuple</span> is an another encoding.</p>
+  <pre><code class="hljs">
+(
+   String,
+   String,
+   Option[Map[String, String]],
+   Option[Map[String, String]],
+   Option[Map[String, String]],
+   RequestContext,
+   Option[T]
+)
+  </code></pre>
+</section>
+
+<section>
+  <h3>Shapeless</h3>
+  <p>In <span class="keyword">Shapeless</span> terms, there is a <b class="keyword">generic</b> representation, which is encoded as <b class="keyword">HList</b>.</p>
+  <pre><code class="hljs">
+case class Person(name: String, age: Int)
+
+val tom = Person("Tom", 32)
+
+val personGeneric = Generic[Person]
+
+val tomList = personGeneric.to(tom) // Tom :: 32 :: HNil
+val _tom = personGeneric.from(tomList)
+
+tom == _tom // true
+  </code></pre>
+</section>
+
+<section>
+  <h4>ProxyRequest[String] => ProxyRequest[T]</h4>
+  <pre><code class="hljs">
+// val prs: ProxyRequest[String]
+
+bodyObjOptionEither map { bodyObjOption =>
+
+  val prsList = Generic[ProxyRequest[String]].to(prs)
+  val prList = (bodyObjOption :: prsList.reverse.tail).reverse
+  Generic[ProxyRequest[T]].from(prList)
+
+}
+  </code></pre>
+</section>
+
+<section>
+  <h4>The final version</h4>
+  <pre><code class="hljs">
+implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) =
+  CanDecode.instance[ProxyRequest[T]] { is => {
+    CanDecode[ProxyRequest[String]].readStream(is) flatMap { prs =>
+      val bodyObjOptionEither = prs.body match {
+        case Some(bodyString) =>
+          canDecode.readStream(new ByteArrayInputStream(bodyString.getBytes)).map(Some.apply)
+        case None =>
+          Right(None)
+      }
+
+      bodyObjOptionEither map { bodyObjOption =>
+        val prsList = Generic[ProxyRequest[String]].to(prs)
+        val prList = (bodyObjOption :: prsList.reverse.tail).reverse
+        Generic[ProxyRequest[T]].from(prList)
+      }
+    }
+  }}
+  </code></pre>
+</section>
+
+<section>
+  <h4>New imports</h4>
+  <pre><code class="hljs">
+import io.circe.generic.auto._
+import Lambda.canDecodeWithCirce
+import Lambda.canDecodeProxyRequest
+  </code></pre>
+</section>
+
+<section>
+  <h4>How will it work now?</h4>
+  <p class="fragment"> <b class="keyword">InputStream</b> { ... body: "{\"msg\"}" ...}</p>
+  <pre class="fragment"><code class="hljs">
+  class MyHandler extends Lambda.Proxy[Ping, Pong]
+  // The constructor requires implicit CanDecode[ProxyRequest[Ping]]
+  </code></pre>
+  <pre class="fragment"><code class="hljs">
+  implicit def canDecodeProxyRequest[Ping](implicit canDecode: CanDecode[T])
+  // returns CanDecode[ProxyRequest[Ping]]
+  </code></pre>
+  <pre class="fragment"><code class="hljs">
+  implicit def canDecodeWithCirce[Ping](implicit decoder: Decoder[Ping])
+  // returns CanDecode[Ping]
+  </code></pre>
+</section>
+
+<section>
+  <h3>Power of Generic Programming!</h3>
+  <pre><code class="hljs">
+abstract class Lambda[I, O]
+(implicit decoder: CanDecode[I], encoder: CanEncode[O]) {
+
+  protected def handle(ping: I): Either[Throwable, O]
+
+  def _handle(is: InputStream, os: OutputStream): Unit = {
+    (for (
+      inputObject <- decoder.readStream(is);
+      outputObject <- handle(inputObject);
+      writeResult <- encoder.writeStream(os, outputObject)
+    ) yield writeResult).left.foreach { e =>
+      throw e
+    }
+  }
+
+}
+  </code></pre>
+</section>
+
+<section class="dimmed keyword" data-background="img/sp.png">
+  <h3>We've learned something today...</h3>
+
+  <ul>
+    <li>What is AWS Lambda;</li>
+    <li>How Circe does it's magic using typeclasses;</li>
+    <li>How to create and use own typeclasses;</li>
+    <li>How using Shapeless to convert a case class into a generic representation;</li>
+  </ul>
+</section>
+
+<section>
+  <h3>mkotsur/aws-lambda-scala</h3>
+  <ul>
+    <li class="fragment">Errors are converted to <b class="keyword">ProxyResponse[String]</b>;</li>
+    <li class="fragment">A bit less error-prone imports;</li>
+    <li class="fragment">Tests.</li>
+  </ul>
+  <h3 class="fragment">Plans:</h3>
+  <ul>
+    <li class="fragment">Support futures;</li>
+    <li class="fragment">Docs and examples.</li>
+  </ul>
+</section>
+
+
+
+<!-- SLIDES END HERE -->
+
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				history: true,
+        transition: 'none',
+        progress: true,
+        margin: 0.1,
+        width: '85%',
+        height: '85%',
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js',
+            async: true,
+            callback: () => {
+              hljs.configure({tabReplace: '    ', languages: ['scala']});
+              hljs.initHighlightingOnLoad();
+            }
+          }
+				]
+			});
+		</script>
+	</body>
+</html>

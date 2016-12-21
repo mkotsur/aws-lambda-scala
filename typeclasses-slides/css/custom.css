@@ -1,0 +1,36 @@
+.reveal section img {
+  border: none;
+}
+
+.reveal .keyword {
+  color: #eee8d5;
+}
+
+.reveal .github {
+  list-style-image: url('./img/github-small.png');
+}
+
+.reveal h4,h3 {
+  text-transform: none;
+}
+
+.reveal .error {
+  color: red;
+}
+
+.reveal .dimmed {
+  background-color: rgba(0, 43, 54, 0.8);
+}
+
+.spot {
+  color: #eee8d5;
+  background: #d33682;
+}
+
+html.dim .backgrounds {
+   -webkit-filter: blur(4px) saturate(.5) brightness(.8);
+   -moz-filter: blur(4px) saturate(.7) brightness(.9);
+   -o-filter: blur(4px) saturate(.7) brightness(.9);
+   -ms-filter: blur(4px) saturate(.7) brightness(.9);
+   filter: blur(4px) saturate(.7) brightness(.9);
+}
