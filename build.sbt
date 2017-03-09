@@ -7,7 +7,7 @@ scalaVersion := "2.12.0"
 
 scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
 
-val circeVersion = "0.6.0"
+val circeVersion = "0.7.0"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
