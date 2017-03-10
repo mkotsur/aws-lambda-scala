@@ -2,12 +2,14 @@ package io.github.mkotsur
 
 import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 
+import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.LambdaTest._
 import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.logback.TestAppender
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 
@@ -20,7 +22,11 @@ object LambdaTest {
   }
 
   class PingPongWithError extends Lambda[Ping, Pong] {
-    override def handle(ping: Ping) = Left(new Error("Oops"))
+    override def handle(ping: Ping) = Left(new Error("PingPongWithError: Oops"))
+  }
+
+  class PingPongThrowingAnError extends Lambda[Ping, Pong] {
+    override def handle(ping: Ping) = throw new Error("PingPongThrowingAnError: Oops")
   }
 
   class StringPong extends Lambda[String, Pong] {
@@ -95,7 +101,22 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar {
     os.toString shouldBe "hello"
   }
 
-  test("should throw an error if it happened in the handler") {
+  test("should log an error if it has been thrown in the handler") {
+    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+    val os = new ByteArrayOutputStream()
+
+    val caught = intercept[Error] {
+      new PingPongThrowingAnError().handle(is, os, mock[Context])
+    }
+
+    caught.getMessage shouldEqual "PingPongThrowingAnError: Oops"
+
+    val loggingEvent = TestAppender.events.head
+    loggingEvent.getMessage should include("PingPongThrowingAnError: Oops")
+    loggingEvent.getLevel shouldBe Level.ERROR
+  }
+
+  test("should re-throw an error if the handler has returned Left") {
     val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
@@ -103,7 +124,13 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar {
       new PingPongWithError().handle(is, os, mock[Context])
     }
 
-    caught.getMessage shouldEqual "Oops"
+    caught.getMessage shouldEqual "PingPongWithError: Oops"
+
+    // We assume that the error has been logged by the handler itself in this case
+    // Hence the log should either be empty, or contain something different
+    TestAppender.events.headOption.foreach { loggingEvent =>
+      loggingEvent.getMessage should not include "PingPongWithError: Oops"
+    }
   }
 
   test("should support handlers of sequences") {

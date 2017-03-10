@@ -11,10 +11,12 @@ import io.circe.parser._
 import io.circe.syntax._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.apache.http.HttpStatus
+import org.slf4j.LoggerFactory
 import shapeless.Generic
 
 import scala.io.Source
 import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 object Lambda {
 
@@ -26,6 +28,7 @@ object Lambda {
 
   type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
+  val logger = LoggerFactory.getLogger(getClass)
 
   implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
     CanDecode.instance[T](
@@ -109,7 +112,14 @@ abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEnco
   // This function will ultimately be used as the external handler
   final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
     val read = canDecode.readStream(input)
-    val handled = read.flatMap(handle)
+    val handled = read.flatMap { input =>
+      Try(handle(input)) match {
+        case Success(v) => v
+        case Failure(e) =>
+          Lambda.logger.error(s"Error while executing lambda handler: ${e.getMessage}", e)
+          Left(e)
+      }
+    }
     val written = canEncode.writeStream(output, handled, context)
     output.close()
     written.left.foreach(e => throw e)
