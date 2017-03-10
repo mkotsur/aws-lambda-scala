@@ -7,8 +7,9 @@ Writing a handler for AWS lambda in Scala can be as easy as...
 ```scala
 package io.github.mkotsur.example
 
-import io.github.mkotsur.aws.handler.Lambda
+import io.circe.generic.auto._
 import io.github.mkotsur.aws.handler.Lambda._
+import io.github.mkotsur.aws.handler.Lambda
 
 case class Ping(inputMsg: String)
 
