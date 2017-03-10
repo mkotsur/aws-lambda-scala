@@ -1,7 +1,7 @@
 
 name := "aws-lambda-scala"
 organization := "io.github.mkotsur"
-version := "0.0.6-SNAPSHOT"
+version := "0.0.6"
 
 scalaVersion := "2.12.0"
 
