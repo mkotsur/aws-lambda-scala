@@ -7,14 +7,14 @@ Writing a handler for AWS lambda in Scala can be as easy as...
 ```scala
 package io.github.mkotsur.example
 
-import io.github.mkotsur.aws.handler.LambdaHandler
-import io.circe.generic.auto._
+import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.Lambda._
 
 case class Ping(inputMsg: String)
 
 case class Pong(outputMsg: String)
 
-class PingPongHandler extends LambdaHandler[Ping, Pong] {
+class PingPongHandler extends Lambda[Ping, Pong] {
 
   override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
 
@@ -29,15 +29,12 @@ Features:
 * JSON (de)serialization of case classes;
 * Plain strings are supported too;
 * [AWS API Gateway proxy integration](http://docs.aws.amazon.com/apigateway/latest/developerguide/integrating-api-with-aws-services-lambda.html);
+* Uncaught errors are logged with SLF4J and re-thrown.
 
-Docs are coming soon... Feel free to look at `src/test/scala` if you want to use it right now.
+More docs are coming soon... Feel free to look at `src/test/scala` if you want to use it right now.
 
 ## Adding to your project
 
 ```sbt
-libraryDependencies += "io.github.mkotsur" % "aws-lambda-scala_2.12" % "0.0.5"
+libraryDependencies += "io.github.mkotsur" %% "aws-lambda-scala" % "0.0.6"
 ```
-
-# Lessons learned
-
-Don't define a companion object for the handler class. AWS won't appreciate that.
