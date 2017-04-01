@@ -19,7 +19,7 @@ libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.24"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
 
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.1.0"
+libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.3.0"
 
 // Test dependencies
 
