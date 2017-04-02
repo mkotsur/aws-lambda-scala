@@ -38,7 +38,7 @@ object LambdaTest {
   }
 
   class PingNothing extends Lambda[Ping, Unit] {
-    override def handle(input: Ping) = Right()
+    override def handle(input: Ping) = Right(())
   }
 
   class NothingPong extends Lambda[Unit, Pong] {
@@ -57,7 +57,7 @@ object LambdaTest {
 
 }
 
-class LambdaTest extends FunSuite with Matchers with MockitoSugar {
+class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionValues {
 
   test("should convert input/output to/from case classes") {
 
@@ -111,7 +111,7 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar {
 
     caught.getMessage shouldEqual "PingPongThrowingAnError: Oops"
 
-    val loggingEvent = TestAppender.events.head
+    val loggingEvent = TestAppender.events.headOption.value
     loggingEvent.getMessage should include("PingPongThrowingAnError: Oops")
     loggingEvent.getLevel shouldBe Level.ERROR
   }
