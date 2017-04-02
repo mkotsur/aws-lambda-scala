@@ -1,9 +1,10 @@
-
 name := "aws-lambda-scala"
 organization := "io.github.mkotsur"
-version := "0.0.7-SNAPSHOT"
+// version := @see version.sbt
 
-scalaVersion := "2.12.0"
+releasePublishArtifactsAction := PgpKeys.publishSigned.value
+
+scalaVersion := "2.12.1"
 
 scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
 
