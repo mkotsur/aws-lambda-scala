@@ -5,11 +5,10 @@
 Writing a handler for AWS lambda in Scala can be as easy as...
 
 ```scala
-package io.github.mkotsur.example
-
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.handler.Lambda
+import com.amazonaws.services.lambda.runtime.Context
 
 case class Ping(inputMsg: String)
 
@@ -17,11 +16,11 @@ case class Pong(outputMsg: String)
 
 class PingPongHandler extends Lambda[Ping, Pong] {
 
-  override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
+  override def handle(ping: Ping, context: Context) = Right(Pong(ping.inputMsg.reverse))
 
 }
 ```
-The input JSON will be automatically deserialized into `Ping`, and the output into `Pong`. The `handle()` method is supposed to return `Either[Throwable, Pong]`: `Right` if the input was handled correctly, and `Left` otherwise. 
+The input JSON will be automatically de-serialized into `Ping`, and the output into `Pong`. The `handle()` method is supposed to return `Either[Throwable, Pong]`: `Right` if the input was handled correctly, and `Left` otherwise. 
 
 This handler can be used in AWS Lambda as: `io.github.mkotsur.example::handle`.
 

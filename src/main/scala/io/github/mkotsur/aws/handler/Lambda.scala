@@ -106,14 +106,20 @@ object Lambda {
 
 abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
 
-  // This method should be overriden
-  protected def handle(i: I): Either[Throwable, O]
+  // Either of the following two methods should be overridden
+  protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
+
+  @deprecated(message = "This method is deprecated. " +
+    "Please implement the handle, which takes context as a parameter. " +
+    "See #4 for more details.")
+  protected def handle(i: I): Either[Throwable, O] =
+    Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 
   // This function will ultimately be used as the external handler
   final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
     val read = canDecode.readStream(input)
     val handled = read.flatMap { input =>
-      Try(handle(input)) match {
+      Try(handle(input, context)) match {
         case Success(v) => v
         case Failure(e) =>
           Lambda.logger.error(s"Error while executing lambda handler: ${e.getMessage}", e)

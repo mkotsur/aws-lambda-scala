@@ -12,6 +12,7 @@ import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.logback.TestAppender
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
+import org.mockito.Mockito._
 
 import scala.util.Try
 
@@ -141,6 +142,24 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
 
     os.toString shouldBe """[1,42]"""
     "".reverse
+  }
+
+  test("should inject context when overriding the appropriate method") {
+    val handler = new Lambda[Int, String] {
+      override def handle(input: Int, context: Context): Either[Throwable, String] = {
+        Right(s"${context.getFunctionName}: $input")
+      }
+    }
+
+    val is = new StringInputStream("42")
+    val os = new ByteArrayOutputStream()
+
+    val contextMock = mock[Context]
+    when(contextMock.getFunctionName).thenReturn("testFunction")
+
+    handler.handle(is, os, contextMock)
+
+    os.toString shouldBe "testFunction: 42"
   }
 
 }
