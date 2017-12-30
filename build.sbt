@@ -4,9 +4,30 @@ organization := "io.github.mkotsur"
 
 releasePublishArtifactsAction := PgpKeys.publishSigned.value
 
-publishTo := Some("Sonatype Releases Nexus" at "https://oss.sonatype.org/content/repositories/releases/")
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
 
 scalaVersion := "2.12.1"
+
+import ReleaseTransformations._
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  releaseStepCommand("publishSigned"),
+  setNextVersion,
+  commitNextVersion,
+  releaseStepCommand("sonatypeReleaseAll"),
+  pushChanges
+)
 
 scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
 
