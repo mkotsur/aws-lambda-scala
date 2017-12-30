@@ -1,3 +1,5 @@
+publishMavenStyle := true
+
 pomExtra := {
   <url>https://github.com/mkotsur/aws-lambda-scala</url>
     <licenses>
