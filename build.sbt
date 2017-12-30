@@ -4,6 +4,8 @@ organization := "io.github.mkotsur"
 
 releasePublishArtifactsAction := PgpKeys.publishSigned.value
 
+publishTo := Some("Sonatype Releases Nexus" at "https://oss.sonatype.org/content/repositories/releases/")
+
 scalaVersion := "2.12.1"
 
 scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
