@@ -111,7 +111,7 @@ abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEnco
 
   @deprecated(message = "This method is deprecated. " +
     "Please implement the handle, which takes context as a parameter. " +
-    "See #4 for more details.")
+    "See #4 for more details.", "")
   protected def handle(i: I): Either[Throwable, O] =
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 

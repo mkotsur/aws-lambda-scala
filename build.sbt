@@ -35,7 +35,7 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion = "0.7.0"
+val circeVersion = "0.9.1"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
@@ -45,14 +45,14 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.24"
 
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.1.0"
+libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.2.0"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "1.3.0"
 
 // Test dependencies
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 
-libraryDependencies += "org.mockito" % "mockito-core" % "2.2.22" % "test"
+libraryDependencies += "org.mockito" % "mockito-core" % "2.13.0" % "test"
 
-libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.11" % "test"
+libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"
