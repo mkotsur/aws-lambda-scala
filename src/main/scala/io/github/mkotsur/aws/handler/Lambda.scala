@@ -45,11 +45,10 @@ object Lambda {
         (output, handledEither, _) =>
           handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
       case _ =>
-        (output, handledEither, _) =>
-          handledEither map { handled =>
-            val jsonString = handled.asJson.noSpaces
-            output.write(jsonString.getBytes(UTF_8))
-          }
+        (output, handledEither, _) => handledEither map { handled =>
+          val jsonString = handled.asJson.noSpaces
+          output.write(jsonString.getBytes(UTF_8))
+        }
     }
   )
 
