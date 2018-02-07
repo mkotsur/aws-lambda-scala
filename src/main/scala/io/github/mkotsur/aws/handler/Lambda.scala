@@ -10,7 +10,6 @@ import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
-import org.apache.http.HttpStatus
 import org.slf4j.LoggerFactory
 import shapeless.Generic
 
@@ -46,10 +45,11 @@ object Lambda {
         (output, handledEither, _) =>
           handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
       case _ =>
-        (output, handledEither, _) => handledEither map { handled =>
-          val jsonString = handled.asJson.noSpaces
-          output.write(jsonString.getBytes(UTF_8))
-        }
+        (output, handledEither, _) =>
+          handledEither map { handled =>
+            val jsonString = handled.asJson.noSpaces
+            output.write(jsonString.getBytes(UTF_8))
+          }
     }
   )
 
@@ -90,7 +90,7 @@ object Lambda {
           )
         case Left(e) =>
           ProxyResponse[String](
-            HttpStatus.SC_INTERNAL_SERVER_ERROR,
+            500,
             Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
             Some(e.getMessage)
           )
