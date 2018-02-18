@@ -33,9 +33,11 @@ object Lambda {
     CanDecode.instance[T](
       implicitly[ClassTag[T]] match {
         case ct if ct.runtimeClass == classOf[String] =>
-          is => Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
-        case _ => is =>
-          decode[T](Source.fromInputStream(is).mkString)
+          is =>
+            Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
+        case _ =>
+          is =>
+            decode[T](Source.fromInputStream(is).mkString)
       }
     )
 
@@ -43,12 +45,15 @@ object Lambda {
     implicitly[ClassTag[T]] match {
       case ct if ct.runtimeClass == classOf[String] =>
         (output, handledEither, _) =>
-          handledEither.map { s => output.write(s.asInstanceOf[String].getBytes) }
+          handledEither.map { s =>
+            output.write(s.asInstanceOf[String].getBytes)
+          }
       case _ =>
-        (output, handledEither, _) => handledEither map { handled =>
-          val jsonString = handled.asJson.noSpaces
-          output.write(jsonString.getBytes(UTF_8))
-        }
+        (output, handledEither, _) =>
+          handledEither map { handled =>
+            val jsonString = handled.asJson.noSpaces
+            output.write(jsonString.getBytes(UTF_8))
+          }
     }
   )
 
@@ -58,11 +63,11 @@ object Lambda {
     */
   def GenericProxyRequestOf[T] = shapeless.Generic[ProxyRequest[T]]
 
-  implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] {
-    is => {
+  implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] { is =>
+    {
       def extractBody(s: ProxyRequest[String]) = s.body match {
         case Some(bodyString) => canDecode.readStream(new ByteArrayInputStream(bodyString.getBytes)).map(Option.apply)
-        case None => Right(None)
+        case None             => Right(None)
       }
 
       def produceProxyResponse(decodedRequestString: ProxyRequest[String], bodyOption: Option[T]) = {
@@ -70,10 +75,9 @@ object Lambda {
         Generic[ProxyRequest[T]].from((bodyOption :: reqList.reverse.tail).reverse)
       }
 
-      for (
-        decodedRequest$String <- CanDecode[ProxyRequest[String]].readStream(is);
-        decodedBodyOption <- extractBody(decodedRequest$String)
-      ) yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
+      for (decodedRequest$String <- CanDecode[ProxyRequest[String]].readStream(is);
+           decodedBodyOption     <- extractBody(decodedRequest$String))
+        yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
     }
   }
 
@@ -84,7 +88,8 @@ object Lambda {
         case Right(proxyResponse) =>
           val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
           ProxyResponse[String](
-            proxyResponse.statusCode, proxyResponse.headers,
+            proxyResponse.statusCode,
+            proxyResponse.headers,
             encodedBodyOption
           )
         case Left(e) =>
@@ -109,8 +114,9 @@ abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEnco
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
 
   @deprecated(message = "This method is deprecated. " +
-    "Please implement the handle, which takes context as a parameter. " +
-    "See #4 for more details.", "")
+                "Please implement the handle, which takes context as a parameter. " +
+                "See #4 for more details.",
+              "")
   protected def handle(i: I): Either[Throwable, O] =
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 

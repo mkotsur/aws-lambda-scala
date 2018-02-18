@@ -1,0 +1,9 @@
+version: 2
+jobs:
+   build:
+     docker:
+       - image: circleci/openjdk:8u151-jdk-node-browsers
+     steps:
+       - checkout
+       - run: sbt clean compile test
+       - run: sbt scalafmtSbtCheck
