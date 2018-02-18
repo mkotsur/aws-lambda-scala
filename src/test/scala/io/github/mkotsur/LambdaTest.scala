@@ -70,8 +70,8 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
   }
 
   test("should allow to call 'handle()' via reflection") {
-    val handlerClass = Class.forName(classOf[PingPong].getName)
-    val handlerMethod =   handlerClass.getMethod("handle", classOf[InputStream], classOf[OutputStream], classOf[Context])
+    val handlerClass  = Class.forName(classOf[PingPong].getName)
+    val handlerMethod = handlerClass.getMethod("handle", classOf[InputStream], classOf[OutputStream], classOf[Context])
 
     val handlerInstance = handlerClass.getConstructor().newInstance()
 
@@ -145,9 +145,8 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
 
   test("should inject context when overriding the appropriate method") {
     val handler = new Lambda[Int, String] {
-      override def handle(input: Int, context: Context): Either[Throwable, String] = {
+      override def handle(input: Int, context: Context): Either[Throwable, String] =
         Right(s"${context.getFunctionName}: $input")
-      }
     }
 
     val is = new StringInputStream("42")
