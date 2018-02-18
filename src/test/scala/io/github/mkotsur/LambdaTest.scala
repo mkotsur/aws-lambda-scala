@@ -4,7 +4,6 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 
 import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
-import com.amazonaws.util.StringInputStream
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.LambdaTest._

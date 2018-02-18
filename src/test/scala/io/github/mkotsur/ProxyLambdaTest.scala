@@ -3,7 +3,6 @@ package io.github.mkotsur
 import java.io.ByteArrayOutputStream
 
 import com.amazonaws.services.lambda.runtime.Context
-import com.amazonaws.util.StringInputStream
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.scalatest.mockito.MockitoSugar

@@ -43,7 +43,7 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-parser"
 ).map(_ % circeVersion)
 
-libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.24"
+libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.2.0"
 
@@ -51,10 +51,8 @@ libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "2.0.2"
 
 // Test dependencies
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 
-libraryDependencies += "org.mockito" % "mockito-core" % "2.13.0" % "test"
+libraryDependencies += "org.mockito" % "mockito-core" % "2.15.0" % "test"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"
-
-libraryDependencies += "com.amazonaws" % "aws-java-sdk" % "1.11.273" % "test"

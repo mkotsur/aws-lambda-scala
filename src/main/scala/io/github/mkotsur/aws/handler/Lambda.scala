@@ -27,7 +27,7 @@ object Lambda {
 
   type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
-  val logger = LoggerFactory.getLogger(getClass)
+  private val logger = LoggerFactory.getLogger(getClass)
 
   implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
     CanDecode.instance[T](
