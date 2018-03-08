@@ -38,3 +38,5 @@ More docs are coming soon... Feel free to look at `src/test/scala` if you want t
 ```sbt
 libraryDependencies += "io.github.mkotsur" %% "aws-lambda-scala" % {latest-version}
 ```
+## How does aws-lambda-scala compare with Serverless framework
+Short answer: they complement each other. Long anwser: read [this blog post](https://medium.com/@mkotsur/this-is-why-you-should-consider-using-aws-lambda-scala-6b3ea841f8b0).
