@@ -11,7 +11,10 @@ publishTo := Some(
     Opts.resolver.sonatypeStaging
 )
 
-scalaVersion := "2.12.4"
+val scalaV211 = "2.11.12"
+val scalaV212 = "2.12.4"
+scalaVersion := scalaV212
+crossScalaVersions := Seq(scalaV211, scalaV211)
 
 import ReleaseTransformations._
 releaseProcess := Seq[ReleaseStep](
@@ -34,6 +37,7 @@ scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
 fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
+
 
 val circeVersion = "0.9.1"
 
