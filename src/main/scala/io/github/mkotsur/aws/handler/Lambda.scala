@@ -5,6 +5,7 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
+import cats.implicits._
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
