@@ -13,7 +13,7 @@ import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 import org.mockito.Mockito._
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object LambdaTest {
 
@@ -48,7 +48,10 @@ object LambdaTest {
   class SeqSeq extends Lambda[Seq[String], Seq[Int]] {
     override def handle(strings: Seq[String]) = Try {
       strings.map(_.toInt)
-    }.toEither
+    } match {
+      case Success(v) => Right(v)
+      case Failure(ex) => Left(ex)
+    }
   }
 
   case class Ping(inputMsg: String)

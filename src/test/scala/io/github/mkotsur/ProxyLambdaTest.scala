@@ -51,7 +51,8 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
 
   test("should handle request and response classes with body of raw type") {
 
-    val s = Source.fromResource("proxyInput-raw.json")
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-raw.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new StringInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -64,8 +65,8 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should handle request and response classes with body of case classes") {
-
-    val s = Source.fromResource("proxyInput-case-class.json")
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new StringInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -78,8 +79,8 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should generate error response in case of error in raw handler") {
-
-    val s = Source.fromResource("proxyInput-raw.json")
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-raw.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new StringInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -95,8 +96,8 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
   }
 
   test("should generate error response in case of error in case class handler") {
-
-    val s = Source.fromResource("proxyInput-case-class.json")
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new StringInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
