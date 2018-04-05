@@ -38,7 +38,6 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-
 val circeVersion = "0.9.1"
 
 libraryDependencies ++= Seq(
