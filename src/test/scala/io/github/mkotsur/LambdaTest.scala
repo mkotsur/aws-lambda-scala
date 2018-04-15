@@ -184,6 +184,6 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
 
     new OptionOption().handle(is, os, mock[Context])
 
-    os.toString should be("""{"outputMsg"':"5"}""")
+    os.toString should be("""{"outputMsg":"5"}""")
   }
 }
