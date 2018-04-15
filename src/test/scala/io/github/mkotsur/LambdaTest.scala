@@ -5,13 +5,13 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
-import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.LambdaTest._
 import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.logback.TestAppender
+import org.mockito.Mockito._
 import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
-import org.mockito.Mockito._
 
 import scala.util.{Failure, Success, Try}
 
@@ -52,6 +52,12 @@ object LambdaTest {
       case Success(v) => Right(v)
       case Failure(ex) => Left(ex)
     }
+  }
+
+  class OptionOption extends Lambda[Option[Ping], Option[Pong]] {
+    override protected def handle(input: Option[Ping]) = Right(
+      input.map { ping => Pong(ping.inputMsg.length.toString) }
+    )
   }
 
   case class Ping(inputMsg: String)
@@ -163,4 +169,21 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     os.toString shouldBe "testFunction: 42"
   }
 
+  test("should support None as input and output") {
+    val is = new StringInputStream("null")
+    val os = new ByteArrayOutputStream()
+
+    new OptionOption().handle(is, os, mock[Context])
+
+    os.toString should be("null")
+  }
+
+  test("should support Some as input and output") {
+    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+    val os = new ByteArrayOutputStream()
+
+    new OptionOption().handle(is, os, mock[Context])
+
+    os.toString should be("""{"outputMsg"':"5"}""")
+  }
 }
