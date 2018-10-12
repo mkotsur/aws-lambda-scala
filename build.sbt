@@ -12,7 +12,7 @@ publishTo := Some(
 )
 
 val scalaV211 = "2.11.12"
-val scalaV212 = "2.12.4"
+val scalaV212 = "2.12.6"
 scalaVersion := scalaV212
 crossScalaVersions := Seq(scalaV211, scalaV212)
 
@@ -39,7 +39,7 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion = "0.9.1"
+val circeVersion = "0.10.0"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
@@ -51,12 +51,12 @@ libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
 
 libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.2.0"
 
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "2.0.2"
+libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "2.2.2"
 
 // Test dependencies
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 
-libraryDependencies += "org.mockito" % "mockito-core" % "2.15.0" % "test"
+libraryDependencies += "org.mockito" % "mockito-core" % "2.23.0" % "test"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"
