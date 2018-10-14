@@ -12,7 +12,7 @@ publishTo := Some(
 )
 
 val scalaV211 = "2.11.12"
-val scalaV212 = "2.12.6"
+val scalaV212 = "2.12.7"
 scalaVersion := scalaV212
 crossScalaVersions := Seq(scalaV211, scalaV212)
 
