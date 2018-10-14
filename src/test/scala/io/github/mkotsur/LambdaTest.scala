@@ -233,7 +233,7 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
 
-    val handler = handlerInstance[Ping, Future[Pong]]((ping, _) => Right(Future {
+    val handler = handlerInstance[Ping, Future[Pong]]((_, _) => Right(Future {
       Thread.sleep(1000)
       Pong("Not gonna happen")
     }))

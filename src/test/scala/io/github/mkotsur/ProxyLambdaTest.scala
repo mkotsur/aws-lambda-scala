@@ -20,8 +20,8 @@ import scala.util.Try
 
 object ProxyLambdaTest {
 
-  type CanDecodeProxyRequest[T] = CanDecode[ProxyRequest[T]]
-  type CanEncodeProxyResponse[T] = CanEncode[ProxyResponse[T]]
+  private type CanDecodeProxyRequest[T] = CanDecode[ProxyRequest[T]]
+  private type CanEncodeProxyResponse[T] = CanEncode[ProxyResponse[T]]
 
   /**
     * A convenience function for creating an instance of the handler to do tests with.
@@ -134,7 +134,7 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
   }
 
 
-  test("should support futures") {
+  test("should support Future as output") {
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
     val s = Source.fromURL(jsonUrl)
 
@@ -143,6 +143,7 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
 
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+
     import Lambda.canEncodeProxyResponse
     import Lambda.canDecodeProxyRequest
     import Lambda.canEncodeFuture
@@ -154,6 +155,35 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
       os.toString should startWith("{")
       os.toString should include("{\\\"outputMsg\\\":\\\"4\\\"}")
       os.toString should endWith("}")
+    }
+  }
+
+  test("should support failed Future as output") {
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
+
+    val is = new StringInputStream(s.mkString)
+    val os = new ByteArrayOutputStream()
+
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+
+    import Lambda.canEncodeProxyResponse
+    import Lambda.canDecodeProxyRequest
+    import Lambda.canEncodeFuture
+
+    handlerInstance((_: ProxyRequest[Ping], _: Context) => {
+      val response = ProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops"))))
+      Try(response).toEither
+    }).handle(is, os, context)
+
+    eventually {
+      val response = decode[ProxyResponse[String]](os.toString)
+      response shouldEqual Right(ProxyResponse(
+        500,
+        Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
+        Some("Oops")
+      ))
     }
   }
 
