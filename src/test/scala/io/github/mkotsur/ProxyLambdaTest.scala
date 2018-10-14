@@ -3,7 +3,7 @@ package io.github.mkotsur
 import java.io.ByteArrayOutputStream
 
 import com.amazonaws.services.lambda.runtime.Context
-import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.{CanDecode, CanEncode, Lambda}
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSuite, Matchers}
@@ -11,10 +11,30 @@ import io.circe.generic.auto._
 import io.circe.parser._
 import Lambda._
 import ProxyLambdaTest._
+import org.mockito.Mockito.when
+import org.scalatest.concurrent.Eventually
 
+import scala.concurrent.Future
 import scala.io.Source
+import scala.util.Try
 
 object ProxyLambdaTest {
+
+  type CanDecodeProxyRequest[T] = CanDecode[ProxyRequest[T]]
+  type CanEncodeProxyResponse[T] = CanEncode[ProxyResponse[T]]
+
+  /**
+    * A convenience function for creating an instance of the handler to do tests with.
+    */
+  private def handlerInstance[I: CanDecodeProxyRequest, O: CanEncodeProxyResponse](doHandle: (ProxyRequest[I], Context) => Either[Throwable, ProxyResponse[O]]) = {
+    new Lambda.Proxy[I, O] {
+      override protected def handle(i: ProxyRequest[I], c: Context): Either[Throwable, ProxyResponse[O]] = {
+        super.handle(i, c)
+        doHandle(i, c)
+      }
+    }
+  }
+
   class ProxyRawHandler extends Lambda.Proxy[String, String] {
     override protected def handle(input: ProxyRequest[String]) = {
       Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
@@ -47,7 +67,7 @@ object ProxyLambdaTest {
   case class Pong(outputMsg: String)
 }
 
-class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
+class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Eventually {
 
   test("should handle request and response classes with body of raw type") {
 
@@ -111,6 +131,30 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar {
       Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
       Some("Oh boy, something went wrong...")
     ))
+  }
+
+
+  test("should support futures") {
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
+
+    val is = new StringInputStream(s.mkString)
+    val os = new ByteArrayOutputStream()
+
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+    import Lambda.canEncodeProxyResponse
+    import Lambda.canDecodeProxyRequest
+    import Lambda.canEncodeFuture
+
+    val function: (ProxyRequest[Ping], Context) => Either[Throwable, ProxyResponse[Future[Pong]]] = (_: ProxyRequest[Ping], _) => Try(ProxyResponse.success(Some(Future.successful(Pong("4"))))).toEither
+    handlerInstance(function).handle(is, os, context)
+
+    eventually {
+      os.toString should startWith("{")
+      os.toString should include("{\\\"outputMsg\\\":\\\"4\\\"}")
+      os.toString should endWith("}")
+    }
   }
 
 }
