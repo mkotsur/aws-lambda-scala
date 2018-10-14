@@ -5,7 +5,6 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
-import cats.implicits._
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
@@ -14,7 +13,7 @@ import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
 import shapeless.Generic
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.io.Source
 import scala.language.{higherKinds, postfixOps}
@@ -86,7 +85,6 @@ object Lambda {
   }
 
   implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) = CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
-    import scala.concurrent.duration._
     for {
       response <- responseEither
       futureResult <- Try(Await.result(response, ctx.getRemainingTimeInMillis millis)).toEither
