@@ -27,6 +27,7 @@ This handler can be used in AWS Lambda as: `io.github.mkotsur.example::handle`.
 
 Features:
 
+* Return Futures right from the handler!
 * JSON (de)serialization of case classes;
 * Plain strings are supported too;
 * [AWS API Gateway proxy integration](http://docs.aws.amazon.com/apigateway/latest/developerguide/integrating-api-with-aws-services-lambda.html);
@@ -40,4 +41,4 @@ More docs are coming soon... Feel free to look at `src/test/scala` if you want t
 libraryDependencies += "io.github.mkotsur" %% "aws-lambda-scala" % {latest-version}
 ```
 ## How does aws-lambda-scala compare with Serverless framework
-Short answer: they complement each other. Long anwser: read [this blog post](https://medium.com/@mkotsur/this-is-why-you-should-consider-using-aws-lambda-scala-6b3ea841f8b0).
+Short answer: they complement each other. Long answer: read [this blog post](https://medium.com/@mkotsur/this-is-why-you-should-consider-using-aws-lambda-scala-6b3ea841f8b0).
