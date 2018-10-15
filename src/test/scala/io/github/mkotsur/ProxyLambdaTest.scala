@@ -9,6 +9,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSuite, Matchers}
 import io.circe.generic.auto._
 import io.circe.parser._
+import cats.syntax.either._
 import Lambda._
 import ProxyLambdaTest._
 import org.mockito.Mockito.when
@@ -148,7 +149,7 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
     import Lambda.canDecodeProxyRequest
     import Lambda.canEncodeFuture
 
-    val function: (ProxyRequest[Ping], Context) => Either[Throwable, ProxyResponse[Future[Pong]]] = (_: ProxyRequest[Ping], _) => Try(ProxyResponse.success(Some(Future.successful(Pong("4"))))).toEither
+    val function: (ProxyRequest[Ping], Context) => Either[Throwable, ProxyResponse[Future[Pong]]] = (_: ProxyRequest[Ping], _) => Right(ProxyResponse.success(Some(Future.successful(Pong("4")))))
     handlerInstance(function).handle(is, os, context)
 
     eventually {
@@ -174,12 +175,12 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
 
     handlerInstance((_: ProxyRequest[Ping], _: Context) => {
       val response = ProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops"))))
-      Try(response).toEither
+      Either.right(response)
     }).handle(is, os, context)
 
     eventually {
       val response = decode[ProxyResponse[String]](os.toString)
-      response shouldEqual Right(ProxyResponse(
+      response shouldEqual Either.right(ProxyResponse(
         500,
         Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
         Some("Oops")

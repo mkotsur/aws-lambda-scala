@@ -5,6 +5,7 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
+import cats.syntax.either.catsSyntaxEither
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
@@ -86,14 +87,14 @@ object Lambda {
 
   implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) =
     CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
-      for {
-        response     <- responseEither
-        futureResult <- Try(Await.result(response, ctx.getRemainingTimeInMillis millis)).toEither
-        json         <- Try(canEncode(futureResult).noSpaces.getBytes).toEither
-        _            <- Try(os.write(json)).toEither
+      (for {
+        response     <- responseEither.toTry
+        futureResult <- Try(Await.result(response, ctx.getRemainingTimeInMillis millis))
+        json         <- Try(canEncode(futureResult).noSpaces.getBytes)
+        _            <- Try(os.write(json))
       } yield {
         ()
-      }
+      })
     })
 
   implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
