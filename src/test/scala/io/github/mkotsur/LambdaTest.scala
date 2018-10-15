@@ -1,21 +1,36 @@
 package io.github.mkotsur
 
 import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
+import java.util.concurrent.TimeoutException
 
 import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.github.mkotsur.LambdaTest._
-import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.{CanDecode, CanEncode, Lambda}
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.logback.TestAppender
 import org.mockito.Mockito._
 import org.scalatest._
+import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 object LambdaTest {
+
+  /**
+    * A convenience function for creating an instance of the handler to do tests with.
+    */
+  private def handlerInstance[I: CanDecode, O: CanEncode](doHandle: (I, Context) => Either[Throwable, O]) = {
+    new Lambda[I, O] {
+      override protected def handle(i: I, c: Context): Either[Throwable, O] = {
+        super.handle(i, c)
+        doHandle(i, c)
+      }
+    }
+  }
 
   class PingPong extends Lambda[Ping, Pong]() {
     override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
@@ -66,7 +81,7 @@ object LambdaTest {
 
 }
 
-class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionValues {
+class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionValues with Eventually {
 
   test("should convert input/output to/from case classes") {
 
@@ -185,5 +200,44 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     new OptionOption().handle(is, os, mock[Context])
 
     os.toString should be("""{"outputMsg":"5"}""")
+  }
+
+  test("should support Future as output") {
+    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val os = new ByteArrayOutputStream()
+
+    val handler = handlerInstance((ping: Ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
+    handler.handle(is, os, mock[Context])
+
+    eventually {
+      os.toString shouldBe """{"outputMsg":"olleh"}"""
+    }
+  }
+
+  test("should support failed Future as output") {
+    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val os = new ByteArrayOutputStream()
+
+    val handler = handlerInstance[Ping, Future[Pong]]((_, _) =>
+      Right(Future.failed(new IndexOutOfBoundsException("Something is wrong")))
+    )
+
+    an [IndexOutOfBoundsException] should be thrownBy handler.handle(is, os, mock[Context])
+  }
+
+  test("should fail when Future takes longer than the execution context is ready to provide") {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val os = new ByteArrayOutputStream()
+
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+
+    val handler = handlerInstance[Ping, Future[Pong]]((_, _) => Right(Future {
+      Thread.sleep(1000)
+      Pong("Not gonna happen")
+    }))
+
+    an [TimeoutException] should be thrownBy handler.handle(is, os, context)
   }
 }

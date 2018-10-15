@@ -1,11 +1,11 @@
 package io.github.mkotsur.aws.handler
 
-import java.io.{ByteArrayInputStream, InputStream, OutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream}
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets.UTF_8
 
 import com.amazonaws.services.lambda.runtime.Context
-import cats.implicits._
+import cats.syntax.either.catsSyntaxEither
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
@@ -14,7 +14,10 @@ import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
 import shapeless.Generic
 
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.io.Source
+import scala.language.{higherKinds, postfixOps}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -82,17 +85,47 @@ object Lambda {
     }
   }
 
-  implicit def canEncodeProxyResponse[T](implicit canEncode: Encoder[T]) = CanEncode.instance[ProxyResponse[T]](
-    (output, proxyResponseEither, _) => {
+  implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) =
+    CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
+      (for {
+        response     <- responseEither.toTry
+        futureResult <- Try(Await.result(response, ctx.getRemainingTimeInMillis millis))
+        json         <- Try(canEncode(futureResult).noSpaces.getBytes)
+        _            <- Try(os.write(json))
+      } yield {
+        ()
+      }) match {
+        case Success(v) => Right(v)
+        case Failure(e) => Left(e)
+      }
+    })
 
-      val response = proxyResponseEither match {
-        case Right(proxyResponse) =>
-          val encodedBodyOption = proxyResponse.body.map(bodyObject => bodyObject.asJson.noSpaces)
-          ProxyResponse[String](
-            proxyResponse.statusCode,
-            proxyResponse.headers,
-            encodedBodyOption
-          )
+  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
+    (output, proxyResponseEither, ctx) => {
+
+      def writeBody(bodyOption: Option[T]): Either[Throwable, Option[String]] =
+        bodyOption match {
+          case None => Right(None)
+          case Some(body) =>
+            val os     = new ByteArrayOutputStream()
+            val result = canEncode.writeStream(os, Right(body), ctx)
+            os.close()
+            result.map(_ => Some(os.toString()))
+        }
+
+      val proxyResposeOrError = for {
+        proxyResponse <- proxyResponseEither
+        bodyOption    <- writeBody(proxyResponse.body)
+      } yield
+        ProxyResponse[String](
+          proxyResponse.statusCode,
+          proxyResponse.headers,
+          bodyOption
+        )
+
+      val response = proxyResposeOrError match {
+        case Right(proxyRespose) =>
+          proxyRespose
         case Left(e) =>
           ProxyResponse[String](
             500,
