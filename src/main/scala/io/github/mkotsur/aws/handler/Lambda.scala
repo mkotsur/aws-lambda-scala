@@ -94,7 +94,10 @@ object Lambda {
         _            <- Try(os.write(json))
       } yield {
         ()
-      })
+      }) match {
+        case Success(v) => Right(v)
+        case Failure(e) => Left(e)
+      }
     })
 
   implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
