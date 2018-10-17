@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-trait FutureCodec {
+private[aws] trait FutureCodec {
   implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) =
     CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
       (for {

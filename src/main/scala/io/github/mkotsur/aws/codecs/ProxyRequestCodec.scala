@@ -9,7 +9,7 @@ import shapeless.Generic
 
 import scala.language.{higherKinds, postfixOps}
 
-trait ProxyRequestCodec extends AllCodec with FutureCodec {
+private[aws] trait ProxyRequestCodec extends AllCodec with FutureCodec {
 
   /**
     * This is a transformer between case classes and their generic representations [shapeless.HList].

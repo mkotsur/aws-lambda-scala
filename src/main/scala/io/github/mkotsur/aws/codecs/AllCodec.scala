@@ -11,7 +11,7 @@ import io.github.mkotsur.aws.handler.{CanDecode, CanEncode}
 import scala.io.Source
 import scala.reflect.ClassTag
 
-trait AllCodec {
+private[aws] trait AllCodec {
 
   implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
     CanDecode.instance[T](
