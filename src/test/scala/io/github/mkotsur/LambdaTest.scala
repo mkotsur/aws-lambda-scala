@@ -7,7 +7,7 @@ import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.github.mkotsur.LambdaTest._
-import io.github.mkotsur.aws.handler.{CanDecode, CanEncode, Lambda}
+import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.logback.TestAppender
 import org.mockito.Mockito._
@@ -19,18 +19,6 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 object LambdaTest {
-
-  /**
-    * A convenience function for creating an instance of the handler to do tests with.
-    */
-  private def handlerInstance[I: CanDecode, O: CanEncode](doHandle: (I, Context) => Either[Throwable, O]) = {
-    new Lambda[I, O] {
-      override protected def handle(i: I, c: Context): Either[Throwable, O] = {
-        super.handle(i, c)
-        doHandle(i, c)
-      }
-    }
-  }
 
   class PingPong extends Lambda[Ping, Pong]() {
     override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
@@ -206,7 +194,7 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val is = new StringInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler = handlerInstance((ping: Ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
+    val handler = Lambda.instance[Ping, Future[Pong]]((ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
     handler.handle(is, os, mock[Context])
 
     eventually {
@@ -218,7 +206,7 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val is = new StringInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler = handlerInstance[Ping, Future[Pong]]((_, _) =>
+    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
       Right(Future.failed(new IndexOutOfBoundsException("Something is wrong")))
     )
 
@@ -233,11 +221,25 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
 
-    val handler = handlerInstance[Ping, Future[Pong]]((_, _) => Right(Future {
+    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) => Right(Future {
       Thread.sleep(1000)
       Pong("Not gonna happen")
     }))
 
     an [TimeoutException] should be thrownBy handler.handle(is, os, context)
+  }
+
+  test("should do side effects only") {
+    var done = false
+    val is = new StringInputStream("""null""")
+    val os = new ByteArrayOutputStream()
+    val context = mock[Context]
+
+    Lambda.instance[None.type, None.type]((_, _) => {
+      done = true
+      Right(None)
+    }).handle(is, os, context)
+
+    done shouldBe true
   }
 }

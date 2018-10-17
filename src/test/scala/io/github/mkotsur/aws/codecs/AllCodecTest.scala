@@ -21,6 +21,15 @@ class AllCodecTest extends FunSuite with Matchers with MockitoSugar with Eventua
     }
   }
 
+  test("should decode empty string") {
+    new AllCodec {
+      val is = new StringInputStream("")
+
+      val value = canDecodeAll[None.type].readStream(is)
+      value.right.value shouldBe Option.empty[None.type]
+    }
+  }
+
   test("should encode null") {
     new AllCodec {
       val os = new ByteArrayOutputStream()
@@ -31,4 +40,5 @@ class AllCodecTest extends FunSuite with Matchers with MockitoSugar with Eventua
       os.toString shouldBe "null"
     }
   }
+
 }

@@ -5,8 +5,9 @@ import java.nio.charset.StandardCharsets.UTF_8
 import io.circe.generic.auto._
 import io.circe.parser.decode
 import io.circe.syntax._
-import io.circe.{Decoder, Encoder}
+import io.circe._
 import io.github.mkotsur.aws.handler.{CanDecode, CanEncode}
+import cats.syntax.either._
 
 import scala.io.Source
 import scala.reflect.ClassTag
@@ -21,7 +22,8 @@ private[aws] trait AllCodec {
             Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
         case _ =>
           is =>
-            decode[T](Source.fromInputStream(is).mkString)
+            val string = Source.fromInputStream(is).mkString
+            decode[T](if (string.isEmpty) "null" else string)
       }
     )
 

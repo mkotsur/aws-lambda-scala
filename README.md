@@ -35,6 +35,49 @@ Features:
 
 More docs are coming soon... Feel free to look at `src/test/scala` if you want to use it right now.
 
+## Examples
+
+### Returning futures
+
+```scala
+import io.circe.generic.auto._
+import io.github.mkotsur.aws.handler.Lambda._
+import io.github.mkotsur.aws.handler.Lambda
+import com.amazonaws.services.lambda.runtime.Context
+import scala.concurrent.Future
+
+case class Ping(inputMsg: String)
+
+class PingFuturePongHandler extends Lambda[Ping, Future[Int]] {
+
+  override def handle(ping: Ping, context: Context) = 
+    Right(Future.successful(ping.inputMsg.length))
+
+}
+```
+
+### Not receiving and not returning any value
+
+This lambda will accept an empty string, or string with `null` as an input.
+
+```scala
+import io.circe.generic.auto._
+import io.github.mkotsur.aws.handler.Lambda._
+import io.github.mkotsur.aws.handler.Lambda
+import com.amazonaws.services.lambda.runtime.Context
+
+class NothingToNothingHandler extends Lambda[None.type, None.type] {
+
+  override def handle(_: None.type , context: Context) = {
+    println("Only sinde effects") 
+    Right(None)
+  }
+    
+}
+```
+
+
+
 ## Adding to your project
 
 ```sbt
