@@ -1,144 +1,41 @@
 package io.github.mkotsur.aws.handler
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream}
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets.UTF_8
+import java.io.{InputStream, OutputStream}
 
 import com.amazonaws.services.lambda.runtime.Context
-import cats.syntax.either.catsSyntaxEither
-import io.circe._
 import io.circe.generic.auto._
-import io.circe.parser._
-import io.circe.syntax._
+import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
-import shapeless.Generic
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
-import scala.io.Source
 import scala.language.{higherKinds, postfixOps}
-import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
-object Lambda {
+object Lambda extends AllCodec with ProxyRequestCodec {
 
+  type Handle[I, O] = (ProxyRequest[I], Context) => HandleResult[O]
+  type HandleResult[O] = Either[Throwable, O]
   type Proxy[I, O] = Lambda[ProxyRequest[I], ProxyResponse[O]]
 
-  type ReadStream[I] = InputStream => Either[Throwable, I]
+  object Proxy {
+    type Handle[I, O] = (ProxyRequest[I], Context) => HandleResult[O]
+    type HandleResult[O] = Either[Throwable, ProxyResponse[O]]
 
-  type ObjectHandler[I, O] = I => Either[Throwable, O]
+    private type CanDecodeProxyRequest[A] = CanDecode[ProxyRequest[A]]
+    private type CanEncodeProxyRequest[A] = CanEncode[ProxyResponse[A]]
 
-  type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
-
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  implicit def canDecodeAll[T: ClassTag](implicit decoder: Decoder[T]) =
-    CanDecode.instance[T](
-      implicitly[ClassTag[T]] match {
-        case ct if ct.runtimeClass == classOf[String] =>
-          is =>
-            Right(Source.fromInputStream(is).mkString.asInstanceOf[T])
-        case _ =>
-          is =>
-            decode[T](Source.fromInputStream(is).mkString)
+    def instance[I: CanDecodeProxyRequest, O: CanEncodeProxyRequest](doHandle: Proxy.Handle[I, O]) = {
+      new Lambda.Proxy[I, O] {
+        override protected def handle(i: ProxyRequest[I], c: Context) = doHandle(i, c)
       }
-    )
-
-  implicit def canEncodeAll[T: ClassTag](implicit encoder: Encoder[T]) = CanEncode.instance[T](
-    implicitly[ClassTag[T]] match {
-      case ct if ct.runtimeClass == classOf[String] =>
-        (output, handledEither, _) =>
-          handledEither.map { s =>
-            output.write(s.asInstanceOf[String].getBytes)
-          }
-      case _ =>
-        (output, handledEither, _) =>
-          handledEither map { handled =>
-            val jsonString = handled.asJson.noSpaces
-            output.write(jsonString.getBytes(UTF_8))
-          }
-    }
-  )
-
-  /**
-    * This is a transformer between case classes and their generic representations [shapeless.HList].
-    * Please check Shapeless guide (e.g. https://github.com/underscoreio/shapeless-guide) for more details.
-    */
-  def GenericProxyRequestOf[T] = shapeless.Generic[ProxyRequest[T]]
-
-  implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] { is =>
-    {
-      def extractBody(s: ProxyRequest[String]) = s.body match {
-        case Some(bodyString) => canDecode.readStream(new ByteArrayInputStream(bodyString.getBytes)).map(Option.apply)
-        case None             => Right(None)
-      }
-
-      def produceProxyResponse(decodedRequestString: ProxyRequest[String], bodyOption: Option[T]) = {
-        val reqList = Generic[ProxyRequest[String]].to(decodedRequestString)
-        Generic[ProxyRequest[T]].from((bodyOption :: reqList.reverse.tail).reverse)
-      }
-
-      for (decodedRequest$String <- CanDecode[ProxyRequest[String]].readStream(is);
-           decodedBodyOption     <- extractBody(decodedRequest$String))
-        yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
     }
   }
 
-  implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) =
-    CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
-      (for {
-        response     <- responseEither.toTry
-        futureResult <- Try(Await.result(response, ctx.getRemainingTimeInMillis millis))
-        json         <- Try(canEncode(futureResult).noSpaces.getBytes)
-        _            <- Try(os.write(json))
-      } yield {
-        ()
-      }) match {
-        case Success(v) => Right(v)
-        case Failure(e) => Left(e)
-      }
-    })
+  type ReadStream[I] = InputStream => Either[Throwable, I]
+  type ObjectHandler[I, O] = I => Either[Throwable, O]
+  type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
-  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
-    (output, proxyResponseEither, ctx) => {
-
-      def writeBody(bodyOption: Option[T]): Either[Throwable, Option[String]] =
-        bodyOption match {
-          case None => Right(None)
-          case Some(body) =>
-            val os     = new ByteArrayOutputStream()
-            val result = canEncode.writeStream(os, Right(body), ctx)
-            os.close()
-            result.map(_ => Some(os.toString()))
-        }
-
-      val proxyResposeOrError = for {
-        proxyResponse <- proxyResponseEither
-        bodyOption    <- writeBody(proxyResponse.body)
-      } yield
-        ProxyResponse[String](
-          proxyResponse.statusCode,
-          proxyResponse.headers,
-          bodyOption
-        )
-
-      val response = proxyResposeOrError match {
-        case Right(proxyRespose) =>
-          proxyRespose
-        case Left(e) =>
-          ProxyResponse[String](
-            500,
-            Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
-            Some(e.getMessage)
-          )
-      }
-
-      output.write(response.asJson.noSpaces.getBytes)
-
-      Right(())
-    }
-  )
+  private val logger = LoggerFactory.getLogger(getClass)
 
 }
 

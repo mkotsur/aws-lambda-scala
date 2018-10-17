@@ -2,39 +2,24 @@ package io.github.mkotsur
 
 import java.io.ByteArrayOutputStream
 
+import cats.syntax.either._
 import com.amazonaws.services.lambda.runtime.Context
-import io.github.mkotsur.aws.handler.{CanDecode, CanEncode, Lambda}
-import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
 import io.circe.generic.auto._
 import io.circe.parser._
-import cats.syntax.either._
-import Lambda._
-import ProxyLambdaTest._
+import io.github.mkotsur.ProxyLambdaTest._
+import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.Lambda._
+import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.mockito.Mockito.when
 import org.scalatest.concurrent.Eventually
+import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.Future
 import scala.io.Source
-import scala.util.Try
 
 object ProxyLambdaTest {
 
-  private type CanDecodeProxyRequest[T] = CanDecode[ProxyRequest[T]]
-  private type CanEncodeProxyResponse[T] = CanEncode[ProxyResponse[T]]
-
-  /**
-    * A convenience function for creating an instance of the handler to do tests with.
-    */
-  private def handlerInstance[I: CanDecodeProxyRequest, O: CanEncodeProxyResponse](doHandle: (ProxyRequest[I], Context) => Either[Throwable, ProxyResponse[O]]) = {
-    new Lambda.Proxy[I, O] {
-      override protected def handle(i: ProxyRequest[I], c: Context): Either[Throwable, ProxyResponse[O]] = {
-        super.handle(i, c)
-        doHandle(i, c)
-      }
-    }
-  }
 
   class ProxyRawHandler extends Lambda.Proxy[String, String] {
     override protected def handle(input: ProxyRequest[String]) = {
@@ -145,12 +130,10 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
 
-    import Lambda.canEncodeProxyResponse
-    import Lambda.canDecodeProxyRequest
-    import Lambda.canEncodeFuture
+    import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
 
     val function: (ProxyRequest[Ping], Context) => Either[Throwable, ProxyResponse[Future[Pong]]] = (_: ProxyRequest[Ping], _) => Right(ProxyResponse.success(Some(Future.successful(Pong("4")))))
-    handlerInstance(function).handle(is, os, context)
+    Lambda.Proxy.instance(function).handle(is, os, context)
 
     eventually {
       os.toString should startWith("{")
@@ -169,11 +152,9 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
 
-    import Lambda.canEncodeProxyResponse
-    import Lambda.canDecodeProxyRequest
-    import Lambda.canEncodeFuture
+    import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
 
-    handlerInstance((_: ProxyRequest[Ping], _: Context) => {
+    Lambda.Proxy.instance((_: ProxyRequest[Ping], _: Context) => {
       val response = ProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops"))))
       Either.right(response)
     }).handle(is, os, context)
@@ -184,6 +165,35 @@ class ProxyLambdaTest extends FunSuite with Matchers with MockitoSugar with Even
         500,
         Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
         Some("Oops")
+      ))
+    }
+  }
+
+  test("should support returning Units") {
+    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-units.json")
+    val s = Source.fromURL(jsonUrl)
+
+    val is = new StringInputStream(s.mkString)
+    val os = new ByteArrayOutputStream()
+
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+
+    import Lambda.{canDecodeProxyRequest, canEncodeProxyResponse}
+
+    Lambda.Proxy.instance[None.type , None.type ]((_, _) => {
+      val response = ProxyResponse[None.type](
+        statusCode = 200,
+        body = None
+      )
+      Either.right(response)
+    }).handle(is, os, context)
+
+    eventually {
+      val response = decode[ProxyResponse[None.type]](os.toString)
+      response shouldEqual Either.right(ProxyResponse(
+        statusCode = 200,
+        body = None
       ))
     }
   }
