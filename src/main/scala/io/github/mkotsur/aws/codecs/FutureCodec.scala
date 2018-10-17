@@ -15,7 +15,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 private[aws] trait FutureCodec {
-  implicit def canEncodeFuture[I](implicit canEncode: Encoder[I]) =
+  implicit def canEncodeFuture[I: Encoder](implicit canEncode: Encoder[I]) =
     CanEncode.instance[Future[I]]((os, responseEither, ctx) => {
       (for {
         response     <- responseEither.toTry

@@ -48,7 +48,7 @@ object Lambda extends AllCodec with ProxyRequestCodec {
 
 }
 
-abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEncode[O]) {
+abstract class Lambda[I: CanDecode, O: CanEncode] {
 
   // Either of the following two methods should be overridden
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
@@ -62,7 +62,7 @@ abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEnco
 
   // This function will ultimately be used as the external handler
   final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
-    val read = canDecode.readStream(input)
+    val read = implicitly[CanDecode[I]].readStream(input)
     val handled = read.flatMap { input =>
       Try(handle(input, context)) match {
         case Success(v) => v
@@ -71,7 +71,7 @@ abstract class Lambda[I, O](implicit canDecode: CanDecode[I], canEncode: CanEnco
           Left(e)
       }
     }
-    val written = canEncode.writeStream(output, handled, context)
+    val written = implicitly[CanEncode[I]].writeStream(output, handled, context)
     output.close()
     written.left.foreach(e => throw e)
   }
