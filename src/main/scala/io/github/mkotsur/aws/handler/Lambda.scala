@@ -7,6 +7,7 @@ import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
+import cats.syntax.either.catsSyntaxEither
 
 import scala.language.{higherKinds, postfixOps}
 import scala.util.{Failure, Success, Try}
@@ -71,7 +72,7 @@ abstract class Lambda[I: CanDecode, O: CanEncode] {
           Left(e)
       }
     }
-    val written = implicitly[CanEncode[I]].writeStream(output, handled, context)
+    val written = implicitly[CanEncode[O]].writeStream(output, handled, context)
     output.close()
     written.left.foreach(e => throw e)
   }

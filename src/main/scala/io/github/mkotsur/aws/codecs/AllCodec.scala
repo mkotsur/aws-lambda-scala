@@ -7,7 +7,7 @@ import io.circe.parser.decode
 import io.circe.syntax._
 import io.circe._
 import io.github.mkotsur.aws.handler.{CanDecode, CanEncode}
-import cats.syntax.either._
+import cats.syntax.either.catsSyntaxEither
 
 import scala.io.Source
 import scala.reflect.ClassTag

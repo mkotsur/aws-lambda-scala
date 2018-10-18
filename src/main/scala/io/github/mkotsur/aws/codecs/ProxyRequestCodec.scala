@@ -1,7 +1,7 @@
 package io.github.mkotsur.aws.codecs
 
 import java.io.ByteArrayInputStream
-
+import cats.syntax.either.catsSyntaxEither
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.handler.CanDecode
 import io.github.mkotsur.aws.proxy.ProxyRequest

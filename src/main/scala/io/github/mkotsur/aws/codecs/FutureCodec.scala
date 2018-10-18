@@ -8,6 +8,7 @@ import io.github.mkotsur.aws.handler.CanEncode
 import io.github.mkotsur.aws.proxy.ProxyResponse
 import io.circe.generic.auto._
 import io.circe.syntax._
+import cats.syntax.either.catsSyntaxEither
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
