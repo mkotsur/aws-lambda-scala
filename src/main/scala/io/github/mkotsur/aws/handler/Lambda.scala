@@ -14,36 +14,35 @@ import scala.util.{Failure, Success, Try}
 
 object Lambda extends AllCodec with ProxyRequestCodec {
 
-  type Handle[I, O] = (I, Context) => HandleResult[O]
+  type Handle[I, O]    = (I, Context) => HandleResult[O]
   type HandleResult[O] = Either[Throwable, O]
-  type Proxy[I, O] = Lambda[ProxyRequest[I], ProxyResponse[O]]
+  type Proxy[I, O]     = Lambda[ProxyRequest[I], ProxyResponse[O]]
 
   object Proxy {
-    type Handle[I, O] = (ProxyRequest[I], Context) => HandleResult[O]
+    type Handle[I, O]    = (ProxyRequest[I], Context) => HandleResult[O]
     type HandleResult[O] = Either[Throwable, ProxyResponse[O]]
 
     private type CanDecodeProxyRequest[A] = CanDecode[ProxyRequest[A]]
     private type CanEncodeProxyRequest[A] = CanEncode[ProxyResponse[A]]
 
-    def instance[I: CanDecodeProxyRequest, O: CanEncodeProxyRequest](doHandle: Proxy.Handle[I, O]): Lambda[ProxyRequest[I], ProxyResponse[O]] = {
+    def instance[I: CanDecodeProxyRequest, O: CanEncodeProxyRequest](
+        doHandle: Proxy.Handle[I, O]): Lambda[ProxyRequest[I], ProxyResponse[O]] =
       new Lambda.Proxy[I, O] {
         override protected def handle(i: ProxyRequest[I], c: Context) = doHandle(i, c)
       }
-    }
   }
 
-  def instance[I: CanDecode, O: CanEncode](doHandle: Handle[I, O]) = {
+  def instance[I: CanDecode, O: CanEncode](doHandle: Handle[I, O]) =
     new Lambda[I, O] {
       override protected def handle(i: I, c: Context): Either[Throwable, O] = {
         super.handle(i, c)
         doHandle(i, c)
       }
     }
-  }
 
-  type ReadStream[I] = InputStream => Either[Throwable, I]
+  type ReadStream[I]       = InputStream => Either[Throwable, I]
   type ObjectHandler[I, O] = I => Either[Throwable, O]
-  type WriteStream[O] = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
+  type WriteStream[O]      = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -55,9 +54,9 @@ abstract class Lambda[I: CanDecode, O: CanEncode] {
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
 
   @deprecated(message = "This method is deprecated. " +
-    "Please implement the handle, which takes context as a parameter. " +
-    "See #4 for more details.",
-    "")
+                "Please implement the handle, which takes context as a parameter. " +
+                "See #4 for more details.",
+              "")
   protected def handle(i: I): Either[Throwable, O] =
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 
