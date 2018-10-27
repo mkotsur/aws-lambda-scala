@@ -2,6 +2,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/mkotsur/aws-lambda-scala/badge.svg?targetFile=build.sbt)](https://snyk.io/test/github/mkotsur/aws-lambda-scala?targetFile=build.sbt)
 [![Build Status](https://circleci.com/gh/mkotsur/aws-lambda-scala.svg?&style=shield&circle-token=22c35ff0e9c28f61d483d178f8932c928e47dfc2)](https://circleci.com/gh/mkotsur/aws-lambda-scala)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.mkotsur/aws-lambda-scala_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.github.mkotsur%22)
+[![Join the chat at https://gitter.im/software-farm/aws-lambda-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/software-farm/aws-lambda-scala?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Writing a handler for AWS lambda in Scala can be as easy as...
 
