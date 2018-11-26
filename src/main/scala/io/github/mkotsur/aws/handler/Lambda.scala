@@ -8,6 +8,7 @@ import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
 import cats.syntax.either.catsSyntaxEither
+import io.github.mkotsur.aws.handler.Lambda.HandleResult
 
 import scala.language.{higherKinds, postfixOps}
 import scala.util.{Failure, Success, Try}
@@ -57,7 +58,7 @@ abstract class Lambda[I: CanDecode, O: CanEncode] {
                 "Please implement the handle, which takes context as a parameter. " +
                 "See #4 for more details.",
               "")
-  protected def handle(i: I): Either[Throwable, O] =
+  protected def handle(i: I): HandleResult[O] =
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 
   // This function will ultimately be used as the external handler
