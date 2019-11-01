@@ -17,6 +17,7 @@ package object proxy {
 
   case class ProxyRequest[T](
       path: String,
+      pathParameters: Option[Map[String, String]] = None,
       httpMethod: String,
       headers: Option[Map[String, String]] = None,
       queryStringParameters: Option[Map[String, String]] = None,
