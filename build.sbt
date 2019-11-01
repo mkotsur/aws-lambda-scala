@@ -39,7 +39,7 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion = "0.10.0"
+val circeVersion = "0.12.2"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
