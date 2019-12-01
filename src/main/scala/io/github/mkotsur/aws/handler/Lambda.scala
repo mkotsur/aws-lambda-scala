@@ -2,7 +2,7 @@ package io.github.mkotsur.aws.handler
 
 import java.io.{InputStream, OutputStream}
 
-import com.amazonaws.services.lambda.runtime.Context
+import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
@@ -49,7 +49,7 @@ object Lambda extends AllCodec with ProxyRequestCodec {
 
 }
 
-abstract class Lambda[I: CanDecode, O: CanEncode] {
+abstract class Lambda[I: CanDecode, O: CanEncode] extends RequestStreamHandler {
 
   // Either of the following two methods should be overridden
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
@@ -62,7 +62,7 @@ abstract class Lambda[I: CanDecode, O: CanEncode] {
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
 
   // This function will ultimately be used as the external handler
-  final def handle(input: InputStream, output: OutputStream, context: Context): Unit = {
+  final def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = {
     val read = implicitly[CanDecode[I]].readStream(input)
     val handled = read.flatMap { input =>
       Try(handle(input, context)) match {
