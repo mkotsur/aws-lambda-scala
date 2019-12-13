@@ -14,7 +14,7 @@ publishTo := Some(
 val scalaV211 = "2.11.12"
 val scalaV212 = "2.12.7"
 val scalaV213 = "2.13.1"
-scalaVersion := scalaV213
+scalaVersion := scalaV211
 crossScalaVersions := Seq(scalaV211, scalaV212, scalaV213)
 
 import ReleaseTransformations._
@@ -40,7 +40,7 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion = "0.12.3"
+val circeVersion       = "0.12.3"
 val circeVersionCompat = "0.11.2"
 
 libraryDependencies ++= Seq(
@@ -49,7 +49,7 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-parser"
 ).map(_ % (scalaVersion.value match {
   case `scalaV211` => circeVersionCompat
-  case _ => circeVersion
+  case _           => circeVersion
 }))
 
 libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
@@ -62,6 +62,6 @@ libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "2.2.2"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.0" % "test"
 
-libraryDependencies += "org.mockito" % "mockito-core" % "2.23.0" % "test"
+libraryDependencies += "org.mockito" %% "mockito-scala" % "1.10.0" % "test"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"

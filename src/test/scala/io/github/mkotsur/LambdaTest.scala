@@ -10,10 +10,11 @@ import io.github.mkotsur.LambdaTest._
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.logback.TestAppender
-import org.mockito.Mockito._
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mockito.MockitoSugar
+import org.mockito.MockitoSugar
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -49,17 +50,20 @@ object LambdaTest {
   }
 
   class SeqSeq extends Lambda[Seq[String], Seq[Int]] {
-    override def handle(strings: Seq[String]) = Try {
-      strings.map(_.toInt)
-    } match {
-      case Success(v) => Right(v)
-      case Failure(ex) => Left(ex)
-    }
+    override def handle(strings: Seq[String]): Either[Throwable, Seq[Int]] =
+      Try {
+        strings.map(_.toInt)
+      } match {
+        case Success(v)  => Right(v)
+        case Failure(ex) => Left(ex)
+      }
   }
 
   class OptionOption extends Lambda[Option[Ping], Option[Pong]] {
     override protected def handle(input: Option[Ping]) = Right(
-      input.map { ping => Pong(ping.inputMsg.length.toString) }
+      input.map { ping =>
+        Pong(ping.inputMsg.length.toString)
+      }
     )
   }
 
@@ -69,7 +73,7 @@ object LambdaTest {
 
 }
 
-class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionValues with Eventually {
+class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with OptionValues with Eventually {
 
   test("should convert input/output to/from case classes") {
 
@@ -194,7 +198,8 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val is = new StringInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler = Lambda.instance[Ping, Future[Pong]]((ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
+    val handler =
+      Lambda.instance[Ping, Future[Pong]]((ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
     handler.handle(is, os, mock[Context])
 
     eventually {
@@ -207,10 +212,9 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val os = new ByteArrayOutputStream()
 
     val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
-      Right(Future.failed(new IndexOutOfBoundsException("Something is wrong")))
-    )
+      Right(Future.failed(new IndexOutOfBoundsException("Something is wrong"))))
 
-    an [IndexOutOfBoundsException] should be thrownBy handler.handle(is, os, mock[Context])
+    an[IndexOutOfBoundsException] should be thrownBy handler.handle(is, os, mock[Context])
   }
 
   test("should fail when Future takes longer than the execution context is ready to provide") {
@@ -219,26 +223,29 @@ class LambdaTest extends FunSuite with Matchers with MockitoSugar with OptionVal
     val os = new ByteArrayOutputStream()
 
     val context = mock[Context]
-    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/)
+    when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/ )
 
-    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) => Right(Future {
-      Thread.sleep(1000)
-      Pong("Not gonna happen")
-    }))
+    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
+      Right(Future {
+        Thread.sleep(1000)
+        Pong("Not gonna happen")
+      }))
 
-    an [TimeoutException] should be thrownBy handler.handle(is, os, context)
+    an[TimeoutException] should be thrownBy handler.handle(is, os, context)
   }
 
   test("should do side effects only") {
-    var done = false
-    val is = new StringInputStream("""null""")
-    val os = new ByteArrayOutputStream()
+    var done    = false
+    val is      = new StringInputStream("""null""")
+    val os      = new ByteArrayOutputStream()
     val context = mock[Context]
 
-    Lambda.instance[None.type, None.type]((_, _) => {
-      done = true
-      Right(None)
-    }).handle(is, os, context)
+    Lambda
+      .instance[None.type, None.type]((_, _) => {
+        done = true
+        Right(None)
+      })
+      .handle(is, os, context)
 
     done shouldBe true
   }

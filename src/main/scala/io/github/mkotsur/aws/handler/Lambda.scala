@@ -51,15 +51,21 @@ object Lambda extends AllCodec with ProxyRequestCodec {
 
 abstract class Lambda[I: CanDecode, O: CanEncode] extends RequestStreamHandler {
 
-  // Either of the following two methods should be overridden
+  /**
+    * Either of the following two methods should be overridden,
+    * if ths one is overriden, its implementation will be called from `handleRequest`, and `handle(i: I)` will never be used..
+    * if the `handle(i: I)` is overriden, this method will delegate to that one and NotImplementedError will not occur.
+    */
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
 
-  @deprecated(message = "This method is deprecated. " +
-                "Please implement the handle, which takes context as a parameter. " +
-                "See #4 for more details.",
-              "")
   protected def handle(i: I): HandleResult[O] =
     Left(new NotImplementedError("Please implement the method handle(i: I, c: Context)"))
+
+  /**
+    * For backwards compatibility and naming consistency
+    */
+  final def handle(input: InputStream, output: OutputStream, context: Context): Unit =
+    handleRequest(input, output, context)
 
   // This function will ultimately be used as the external handler
   final def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = {

@@ -11,7 +11,6 @@ object TestAppender {
 
 class TestAppender extends AppenderBase[ILoggingEvent] {
 
-  override protected def append(e: ILoggingEvent) {
+  override protected def append(e: ILoggingEvent): Unit =
     TestAppender.events += e
-  }
 }
