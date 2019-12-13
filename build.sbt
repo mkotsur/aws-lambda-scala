@@ -6,7 +6,7 @@ releasePublishArtifactsAction := PgpKeys.publishSigned.value
 
 publishTo := Some(
   if (isSnapshot.value)
-    Opts.resolver.sonatypeSnapshots
+    Opts.resolver.mavenLocalFile
   else
     Opts.resolver.sonatypeStaging
 )
@@ -14,7 +14,7 @@ publishTo := Some(
 val scalaV211 = "2.11.12"
 val scalaV212 = "2.12.7"
 val scalaV213 = "2.13.1"
-scalaVersion := scalaV211
+scalaVersion := scalaV213
 crossScalaVersions := Seq(scalaV211, scalaV212, scalaV213)
 
 import ReleaseTransformations._

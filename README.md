@@ -78,8 +78,9 @@ class NothingToNothingHandler extends Lambda[None.type, None.type] {
 ```
 
 
-
 ## Adding to your project
+
+Scala versions supported: 2.11.x, 2.12.x, 2.13.x.
 
 ```sbt
 libraryDependencies += "io.github.mkotsur" %% "aws-lambda-scala" % {latest-version}
