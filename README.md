@@ -70,7 +70,7 @@ import com.amazonaws.services.lambda.runtime.Context
 class NothingToNothingHandler extends Lambda[None.type, None.type] {
 
   override def handle(_: None.type , context: Context) = {
-    println("Only sinde effects") 
+    println("Only side effects") 
     Right(None)
   }
     
