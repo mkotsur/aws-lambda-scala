@@ -55,8 +55,8 @@ private[aws] trait FutureCodec {
         )
 
       val response = proxyResposeOrError match {
-        case Right(proxyRespose) =>
-          proxyRespose
+        case Right(proxyResponse) =>
+          proxyResponse
         case Left(e) =>
           ProxyResponse[String](
             500,

@@ -2,6 +2,14 @@ name := "aws-lambda-scala"
 organization := "io.github.mkotsur"
 // version := @see version.sbt
 
+//TODO: check https://github.com/PlayQ/d4s/blob/master/build.sbt
+// for some good ideas!
+
+// Settings bundles.
+// See: https://www.scala-sbt.org/1.x/docs/Multi-Project.html
+ThisBuild / scalaVersion := "2.13.1"
+ThisBuild / resolvers += Resolver.bintrayRepo("sbt", "sbt-plugin-releases")
+
 releasePublishArtifactsAction := PgpKeys.publishSigned.value
 
 publishTo := Some(
@@ -11,13 +19,8 @@ publishTo := Some(
     Opts.resolver.sonatypeStaging
 )
 
-val scalaV211 = "2.11.12"
-val scalaV212 = "2.12.7"
-val scalaV213 = "2.13.1"
-scalaVersion := scalaV213
-crossScalaVersions := Seq(scalaV211, scalaV212, scalaV213)
-
 import ReleaseTransformations._
+import sbt.Keys.libraryDependencies
 releaseCrossBuild := true
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
@@ -37,31 +40,75 @@ releaseProcess := Seq[ReleaseStep](
 scalacOptions in ThisBuild ++= Seq("-unchecked", "-deprecation")
 
 fork in Test := true
-
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion       = "0.12.3"
-val circeVersionCompat = "0.11.2"
-
-libraryDependencies ++= Seq(
-  "io.circe" %% "circe-core",
-  "io.circe" %% "circe-generic",
-  "io.circe" %% "circe-parser"
-).map(_ % (scalaVersion.value match {
-  case `scalaV211` => circeVersionCompat
-  case _           => circeVersion
-}))
-
-libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
-
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.2.0"
-
-libraryDependencies += "com.amazonaws" % "aws-lambda-java-events" % "2.2.2"
-
 // Test dependencies
+lazy val `core` = project
+  .in(file("core"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.slf4j"      % "slf4j-api"       % "1.7.25",
+    ) ++ deps.circeAll ++ deps.testAll :+ deps.awsLambdaCore :+ deps.awsLambdaEvents
+  )
+  .settings(CompilerPlugins)
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.0" % "test"
+lazy val `eff-cats-effect` = project
+  .in(file("effects/cats-effect"))
+  .settings(
+    libraryDependencies ++= Seq(
+      deps.catsEffect % "provided"
+    ) ++ deps.testAll
+  )
+  .dependsOn(`core`)
 
-libraryDependencies += "org.mockito" %% "mockito-scala" % "1.10.0" % "test"
+lazy val `eff-future` = project
+  .in(file("effects/future"))
+  .dependsOn(`core`)
 
-libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"
+lazy val `example-cats-effect` = project
+  .in(file("examples/cats-effect"))
+  .settings(
+    libraryDependencies ++= Seq(
+      deps.catsEffect
+    )
+  )
+  .settings(SimplePaths: _*)
+  .dependsOn(`eff-cats-effect`)
+
+lazy val deps = new {
+  private lazy val V = new {
+    val catsEffect      = "2.1.2"
+    val pureconfig      = "0.12.2"
+    val awsLambdaCore   = "1.2.0"
+    val awsLambdaEvents = "2.2.2"
+    val circe           = "0.12.3"
+  }
+
+  val catsEffect     = "org.typelevel"         %% "cats-effect"            % V.catsEffect
+  val pureconfig     = "com.github.pureconfig" %% "pureconfig"             % V.pureconfig
+  val pureconfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % V.pureconfig
+
+  val awsLambdaCore   = "com.amazonaws" % "aws-lambda-java-core"   % V.awsLambdaCore
+  val awsLambdaEvents = "com.amazonaws" % "aws-lambda-java-events" % V.awsLambdaEvents
+
+  val circeAll = Seq(
+    "io.circe" %% "circe-core",
+    "io.circe" %% "circe-generic",
+    "io.circe" %% "circe-parser"
+  ).map(_ % V.circe)
+
+  val testAll = Seq(
+    "org.scalatest"  %% "scalatest"      % "3.1.0"  % "test",
+    "org.mockito"    %% "mockito-scala"  % "1.10.0" % "test",
+    "ch.qos.logback" % "logback-classic" % "1.2.3"  % "test"
+  )
+}
+
+lazy val SimplePaths = Seq(
+  Compile / scalaSource := baseDirectory.value / "src",
+  Compile / resourceDirectory := baseDirectory.value / "res"
+)
+
+lazy val CompilerPlugins = Seq(
+  addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full)
+)

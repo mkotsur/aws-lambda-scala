@@ -7,10 +7,9 @@ import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
-import cats.syntax.either.catsSyntaxEither
 import io.github.mkotsur.aws.handler.Lambda.HandleResult
 
-import scala.language.{higherKinds, postfixOps}
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 object Lambda extends AllCodec with ProxyRequestCodec {
@@ -40,10 +39,6 @@ object Lambda extends AllCodec with ProxyRequestCodec {
         doHandle(i, c)
       }
     }
-
-  type ReadStream[I]       = InputStream => Either[Throwable, I]
-  type ObjectHandler[I, O] = I => Either[Throwable, O]
-  type WriteStream[O]      = (OutputStream, Either[Throwable, O], Context) => Either[Throwable, Unit]
 
   private val logger = LoggerFactory.getLogger(getClass)
 
