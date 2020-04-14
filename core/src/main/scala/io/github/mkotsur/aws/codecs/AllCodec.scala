@@ -40,6 +40,7 @@ private[aws] trait AllCodec {
             val jsonString = handled.asJson.noSpaces
             output.write(jsonString.getBytes(UTF_8))
           }
+      // TODO: "left" branch is nastily ignored
     }
   )
 }

@@ -31,43 +31,4 @@ private[aws] trait FutureCodec {
       }
     })
 
-  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
-    (output, proxyResponseEither, ctx) => {
-
-      def writeBody(bodyOption: Option[T]): Either[Throwable, Option[String]] =
-        bodyOption match {
-          case None => Right(None)
-          case Some(body) =>
-            val os     = new ByteArrayOutputStream()
-            val result = canEncode.writeStream(os, Right(body), ctx)
-            os.close()
-            result.map(_ => Some(os.toString()))
-        }
-
-      val proxyResposeOrError = for {
-        proxyResponse <- proxyResponseEither
-        bodyOption    <- writeBody(proxyResponse.body)
-      } yield
-        ProxyResponse[String](
-          proxyResponse.statusCode,
-          proxyResponse.headers,
-          bodyOption
-        )
-
-      val response = proxyResposeOrError match {
-        case Right(proxyResponse) =>
-          proxyResponse
-        case Left(e) =>
-          ProxyResponse[String](
-            500,
-            Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
-            Some(e.getMessage)
-          )
-      }
-
-      output.write(response.asJson.noSpaces.getBytes)
-
-      Right(())
-    }
-  )
 }

@@ -141,7 +141,7 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
       new PingPongWithError().handleRequest(is, os, mock[Context])
     }
 
-    caught.getMessage shouldEqual "PingPongWithError: Oops"
+    caught.getMessage shouldEqual "The returned value was unsuccessful"
   }
 
   test("should support handlers of sequences") {
@@ -241,7 +241,10 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val context = mock[Context]
 
     new Lambda[None.type, None.type] {
-      override def handle(i: None.type, c: Context): Out = Right(None)
+      override def handle(i: None.type, c: Context): Out = {
+        done = true
+        Right(None)
+      }
     }.handleRequest(is, os, context)
 
     done shouldBe true

@@ -3,18 +3,10 @@ package io.github.mkotsur.aws.handler
 import java.io.{InputStream, OutputStream}
 
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import io.github.mkotsur.aws.handler.FLambda.logger
-import org.slf4j.LoggerFactory
 
 import scala.util.Try
 
-object FLambda {
-  //TODO: make sure the logger is max FP optimal
-  private val logger = LoggerFactory.getLogger(getClass)
-}
-
-abstract class FLambda[F[_], I: CanDecode, O: CanEncode](implicit unwrapper: CanUnwrap[F, O])
-    extends RequestStreamHandler {
+abstract class FLambda[F[_], I: CanDecode, O: CanEncode: CanUnwrap[F, *]] extends RequestStreamHandler {
   type In  = F[I]
   type Out = F[O]
 
@@ -30,16 +22,11 @@ abstract class FLambda[F[_], I: CanDecode, O: CanEncode](implicit unwrapper: Can
         // handle runtime exceptions
         outputF <- Try(handle(inputF, context)).toEither
       } yield // unwrap output
-      unwrapper.unwrapAsync(
-        outputF, {
-          case Right(outputV) =>
-            //TODO: refactor
-            //TODO: test for decoding error
-            //TODO: is it legitimate to throw here?
-            Try(CanEncode[O].writeStream(output, Right(outputV), context)).toEither.flatten.left.foreach(e => throw e)
-          case Left(e) =>
-            logger.error(s"Lambda handler returned a failure-value", e)
-            throw e
+      CanUnwrap[F, O].unwrapAsync(
+        outputF,
+        result => {
+          CanEncode[O].writeStream(output, result, context)
+          result.left.foreach(e => throw new java.lang.Error("The returned value was unsuccessful", e))
         }
       )
 

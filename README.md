@@ -12,6 +12,7 @@
 * FLambda: bring your own effect
 * If an error is thrown in the handler - it will be rethrown.
 * If the effect handler returns a "failure" - it will be logged and rethrown at the "end of the world".
+* No logging
 
 Writing a handler for AWS lambda in Scala can be as easy as...
 

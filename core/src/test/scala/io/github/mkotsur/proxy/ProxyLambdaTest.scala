@@ -9,6 +9,7 @@ import io.circe.parser._
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
+import io.github.mkotsur.handler.FLambdaTest.PingPongThrowingAnError
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
@@ -91,7 +92,11 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
-    new ProxyRawHandlerWithError().handleRequest(is, os, mock[Context])
+    val caught = intercept[Error] {
+      new ProxyRawHandlerWithError().handleRequest(is, os, mock[Context])
+    }
+
+    caught.getMessage shouldEqual "The returned value was unsuccessful"
 
     val response = decode[ProxyResponse[String]](os.toString)
     response shouldEqual Right(
@@ -109,7 +114,11 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
-    new ProxyCaseClassHandlerWithError().handleRequest(is, os, mock[Context])
+    val caught = intercept[Error] {
+      new ProxyCaseClassHandlerWithError().handleRequest(is, os, mock[Context])
+    }
+
+    caught.getMessage shouldEqual "The returned value was unsuccessful"
 
     val response = decode[ProxyResponse[String]](os.toString)
 
