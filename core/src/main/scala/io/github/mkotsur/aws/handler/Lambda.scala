@@ -3,7 +3,6 @@ package io.github.mkotsur.aws.handler
 import java.io.{InputStream, OutputStream}
 
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
@@ -14,9 +13,9 @@ import scala.util.{Failure, Success, Try}
 
 object Lambda extends AllCodec with ProxyRequestCodec {
 
-  type Handle[I, O]    = (I, Context) => HandleResult[O]
-  type HandleResult[O] = Either[Throwable, O]
-  type Proxy[I, O]     = Lambda[ProxyRequest[I], ProxyResponse[O]]
+  private type Handle[I, O]    = (I, Context) => HandleResult[O]
+  private type HandleResult[O] = Either[Throwable, O]
+  type Proxy[I, O]             = Lambda[ProxyRequest[I], ProxyResponse[O]]
 
   object Proxy {
     type Handle[I, O]    = (ProxyRequest[I], Context) => HandleResult[O]

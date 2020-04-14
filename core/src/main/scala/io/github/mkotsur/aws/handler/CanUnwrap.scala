@@ -9,8 +9,9 @@ object CanUnwrap {
 //  def apply[F: CanUnwrap[F, *], ]: CanDecode[A] =
 //    implicitly[CanDecode[A]]
 //
-//  def instance[A](func: ReadStream[A]): CanDecode[A] = new CanDecode[A] {
-//    override def readStream: ReadStream[A] = func
-//  }
+  def instance[F[_], A](func: (F[A], Either[Throwable, A] => Unit) => Unit) =
+    new CanUnwrap[F, A] {
+      def unwrapAsync(wrapped: F[A], cb: Either[Throwable, A] => Unit): Unit = func(wrapped, cb)
+    }
 
 }

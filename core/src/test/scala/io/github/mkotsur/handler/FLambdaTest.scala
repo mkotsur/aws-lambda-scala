@@ -1,56 +1,56 @@
-package io.github.mkotsur
+package io.github.mkotsur.handler
 
-import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream}
 import java.util.concurrent.TimeoutException
 
-import ch.qos.logback.classic.Level
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
-import io.github.mkotsur.LambdaTest._
-import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.eff.either.ThrowableOr
 import io.github.mkotsur.aws.handler.Lambda._
-import io.github.mkotsur.logback.TestAppender
+import io.github.mkotsur.aws.handler.{FLambda, Lambda}
+import org.mockito.MockitoSugar
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
-import org.mockito.MockitoSugar
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-object LambdaTest {
+object FLambdaTest {
 
-  class PingPong extends Lambda[Ping, Pong]() {
-    override def handle(ping: Ping) = Right(Pong(ping.inputMsg.reverse))
+  import io.github.mkotsur.aws.eff.either.canUnwrapEither
+
+  private class PingPong extends FLambda[ThrowableOr, Ping, Pong]() {
+    override def handle(ping: Ping, c: Context): Out = Right(Pong(ping.inputMsg.reverse))
   }
 
-  class PingPongWithError extends Lambda[Ping, Pong] {
-    override def handle(ping: Ping) = Left(new Error("PingPongWithError: Oops"))
+  private class PingPongWithError extends FLambda[ThrowableOr, Ping, Pong] {
+    override def handle(ping: Ping, c: Context) = Left(new Error("PingPongWithError: Oops"))
   }
 
-  class PingPongThrowingAnError extends Lambda[Ping, Pong] {
-    override def handle(ping: Ping) = throw new Error("PingPongThrowingAnError: Oops")
+  private class PingPongThrowingAnError extends FLambda[ThrowableOr, Ping, Pong] {
+    override def handle(ping: Ping, c: Context) = throw new Error("PingPongThrowingAnError: Oops")
   }
 
-  class StringPong extends Lambda[String, Pong] {
-    override def handle(input: String) = Right(Pong(input.toUpperCase()))
+  private class StringPong extends FLambda[ThrowableOr, String, Pong] {
+    override def handle(input: String, c: Context) = Right(Pong(input.toUpperCase()))
   }
 
-  class PingString extends Lambda[Ping, String] {
-    override def handle(input: Ping) = Right(input.inputMsg.toLowerCase())
+  private class PingString extends FLambda[ThrowableOr, Ping, String] {
+    override def handle(input: Ping, c: Context) = Right(input.inputMsg.toLowerCase())
   }
 
-  class PingNothing extends Lambda[Ping, Unit] {
-    override def handle(input: Ping) = Right(())
+  private class PingNothing extends FLambda[ThrowableOr, Ping, Unit] {
+    override def handle(input: Ping, c: Context) = Right(())
   }
 
-  class NothingPong extends Lambda[Unit, Pong] {
-    override def handle(n: Unit) = Right(Pong("nothing"))
+  private class NothingPong extends FLambda[ThrowableOr, Unit, Pong] {
+    override def handle(n: Unit, c: Context) = Right(Pong("nothing"))
   }
 
-  class SeqSeq extends Lambda[Seq[String], Seq[Int]] {
-    override def handle(strings: Seq[String]): Either[Throwable, Seq[Int]] =
+  private class SeqSeq extends FLambda[ThrowableOr, Seq[String], Seq[Int]] {
+    override def handle(strings: Seq[String], c: Context): Either[Throwable, Seq[Int]] =
       Try {
         strings.map(_.toInt)
       } match {
@@ -59,39 +59,44 @@ object LambdaTest {
       }
   }
 
-  class OptionOption extends Lambda[Option[Ping], Option[Pong]] {
-    override protected def handle(input: Option[Ping]) = Right(
+  private class OptionOption extends FLambda[ThrowableOr, Option[Ping], Option[Pong]] {
+    override def handle(input: Option[Ping], c: Context) = Right(
       input.map { ping =>
         Pong(ping.inputMsg.length.toString)
       }
     )
   }
 
-  case class Ping(inputMsg: String)
+  private case class Ping(inputMsg: String)
 
-  case class Pong(outputMsg: String)
+  private case class Pong(outputMsg: String)
 
 }
 
-class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with OptionValues with Eventually {
+class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with OptionValues with Eventually {
+
+  import FLambdaTest._
+
+  private implicit def string2bytes(s: String): Array[Byte] = s.getBytes()
 
   test("should convert input/output to/from case classes") {
 
-    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    new PingPong().handle(is, os, mock[Context])
+    new PingPong().handleRequest(is, os, mock[Context])
 
     os.toString shouldBe """{"outputMsg":"olleh"}"""
   }
 
   test("should allow to call 'handle()' via reflection") {
-    val handlerClass  = Class.forName(classOf[PingPong].getName)
-    val handlerMethod = handlerClass.getMethod("handle", classOf[InputStream], classOf[OutputStream], classOf[Context])
+    val handlerClass = Class.forName(classOf[PingPong].getName)
+    val handlerMethod =
+      handlerClass.getMethod("handleRequest", classOf[InputStream], classOf[OutputStream], classOf[Context])
 
     val handlerInstance = handlerClass.getConstructor().newInstance()
 
-    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
     handlerMethod.invoke(handlerInstance, is, os, mock[Context])
@@ -100,60 +105,50 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
   }
 
   test("should allow to pass raw strings as input") {
-    val is = new StringInputStream("hello")
+    val is = new ByteArrayInputStream("hello")
     val os = new ByteArrayOutputStream()
 
-    new StringPong().handle(is, os, mock[Context])
+    new StringPong().handleRequest(is, os, mock[Context])
 
     os.toString shouldBe """{"outputMsg":"HELLO"}"""
   }
 
   test("should allow to pass raw strings as output") {
-    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
-    new PingString().handle(is, os, mock[Context])
+    new PingString().handleRequest(is, os, mock[Context])
 
     os.toString shouldBe "hello"
   }
 
-  test("should log an error if it has been thrown in the handler") {
-    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+  test("should rethrow an error if it has been thrown in the handler") {
+    val is = new ByteArrayInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
     val caught = intercept[Error] {
-      new PingPongThrowingAnError().handle(is, os, mock[Context])
+      new PingPongThrowingAnError().handleRequest(is, os, mock[Context])
     }
 
-    caught.getMessage shouldEqual "PingPongThrowingAnError: Oops"
-
-    val loggingEvent = TestAppender.events.headOption.value
-    loggingEvent.getMessage should include("PingPongThrowingAnError: Oops")
-    loggingEvent.getLevel shouldBe Level.ERROR
+    caught.getMessage shouldEqual "Uncaught error while executing lambda handler"
   }
 
-  test("should re-throw an error if the handler has returned Left") {
-    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+  test("should re-throw an error if the handler returned Left") {
+    val is = new ByteArrayInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
     val caught = intercept[Error] {
-      new PingPongWithError().handle(is, os, mock[Context])
+      new PingPongWithError().handleRequest(is, os, mock[Context])
     }
 
     caught.getMessage shouldEqual "PingPongWithError: Oops"
-
-    // We assume that the error has been logged by the handler itself in this case
-    // Hence the log should either be empty, or contain something different
-    TestAppender.events.headOption.foreach { loggingEvent =>
-      loggingEvent.getMessage should not include "PingPongWithError: Oops"
-    }
   }
 
   test("should support handlers of sequences") {
-    val is = new StringInputStream("""["1","42"]""")
+    val is = new ByteArrayInputStream("""["1","42"]""")
     val os = new ByteArrayOutputStream()
 
-    new SeqSeq().handle(is, os, mock[Context])
+    new SeqSeq().handleRequest(is, os, mock[Context])
 
     os.toString shouldBe """[1,42]"""
     "".reverse
@@ -165,7 +160,7 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
         Right(s"${context.getFunctionName}: $input")
     }
 
-    val is = new StringInputStream("42")
+    val is = new ByteArrayInputStream("42")
     val os = new ByteArrayOutputStream()
 
     val contextMock = mock[Context]
@@ -177,25 +172,25 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
   }
 
   test("should support None as input and output") {
-    val is = new StringInputStream("null")
+    val is = new ByteArrayInputStream("null")
     val os = new ByteArrayOutputStream()
 
-    new OptionOption().handle(is, os, mock[Context])
+    new OptionOption().handleRequest(is, os, mock[Context])
 
     os.toString should be("null")
   }
 
   test("should support Some as input and output") {
-    val is = new StringInputStream("""{ "inputMsg": "HeLLo" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
-    new OptionOption().handle(is, os, mock[Context])
+    new OptionOption().handleRequest(is, os, mock[Context])
 
     os.toString should be("""{"outputMsg":"5"}""")
   }
 
   test("should support Future as output") {
-    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
     val handler =
@@ -208,7 +203,7 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
   }
 
   test("should support failed Future as output") {
-    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
     val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
@@ -219,7 +214,7 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
 
   test("should fail when Future takes longer than the execution context is ready to provide") {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val is = new StringInputStream("""{ "inputMsg": "hello" }""")
+    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
     val context = mock[Context]
@@ -236,7 +231,7 @@ class LambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with
 
   test("should do side effects only") {
     var done    = false
-    val is      = new StringInputStream("""null""")
+    val is      = new ByteArrayInputStream("""null""")
     val os      = new ByteArrayOutputStream()
     val context = mock[Context]
 

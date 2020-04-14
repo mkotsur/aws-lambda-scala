@@ -4,6 +4,15 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.mkotsur/aws-lambda-scala_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.github.mkotsur%22)
 [![Join the chat at https://gitter.im/software-farm/aws-lambda-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/software-farm/aws-lambda-scala?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+
+## Breaking changes
+
+* Method `handle` is now required to take a context! It's still up to you if you use it or not, though...
+* `handleRequest` is now the entry point into the lambda
+* FLambda: bring your own effect
+* If an error is thrown in the handler - it will be rethrown.
+* If the effect handler returns a "failure" - it will be logged and rethrown at the "end of the world".
+
 Writing a handler for AWS lambda in Scala can be as easy as...
 
 ```scala

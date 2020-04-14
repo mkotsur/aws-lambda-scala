@@ -1,19 +1,18 @@
-package io.github.mkotsur
+package io.github.mkotsur.proxy
 
-import java.io.ByteArrayOutputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
 import cats.syntax.either._
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.circe.parser._
-import io.github.mkotsur.ProxyLambdaTest._
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
-import org.scalatest.concurrent.Eventually
 import org.mockito.MockitoSugar
-import org.scalatest.matchers.should
+import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should
 
 import scala.concurrent.Future
 import scala.io.Source
@@ -53,12 +52,15 @@ object ProxyLambdaTest {
 
 class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with Eventually {
 
+  import ProxyLambdaTest._
+  private implicit def string2bytes(s: String): Array[Byte] = s.getBytes()
+
   test("should handle request and response classes with body of raw type") {
 
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-raw.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     new ProxyRawHandler().handle(is, os, mock[Context])
@@ -72,7 +74,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     new ProxyCaseClassHandler().handle(is, os, mock[Context])
@@ -86,7 +88,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-raw.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     new ProxyRawHandlerWithError().handle(is, os, mock[Context])
@@ -104,7 +106,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     new ProxyCaseClassHandlerWithError().handle(is, os, mock[Context])
@@ -123,7 +125,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     val context = mock[Context]
@@ -146,7 +148,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     val context = mock[Context]
@@ -176,7 +178,7 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val jsonUrl = getClass.getClassLoader.getResource("proxyInput-units.json")
     val s       = Source.fromURL(jsonUrl)
 
-    val is = new StringInputStream(s.mkString)
+    val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
     val context = mock[Context]

@@ -34,10 +34,12 @@ abstract class FLambda[F[_], I: CanDecode, O: CanEncode](implicit unwrapper: Can
         outputF, {
           case Right(outputV) =>
             //TODO: refactor
+            //TODO: test for decoding error
             //TODO: is it legitimate to throw here?
             Try(CanEncode[O].writeStream(output, Right(outputV), context)).toEither.flatten.left.foreach(e => throw e)
           case Left(e) =>
             logger.error(s"Lambda handler returned a failure-value", e)
+            throw e
         }
       )
 
