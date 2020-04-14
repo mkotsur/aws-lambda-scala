@@ -166,7 +166,7 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val contextMock = mock[Context]
     when(contextMock.getFunctionName).thenReturn("testFunction")
 
-    handler.handle(is, os, contextMock)
+    handler.handleRequest(is, os, contextMock)
 
     os.toString shouldBe "testFunction: 42"
   }
@@ -193,9 +193,10 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler =
-      Lambda.instance[Ping, Future[Pong]]((ping, _) => Right(Future.successful(Pong(ping.inputMsg.reverse))))
-    handler.handle(is, os, mock[Context])
+    val handler = new Lambda[Ping, Future[Pong]] {
+      override def handle(ping: Ping, c: Context): Out = Right(Future.successful(Pong(ping.inputMsg.reverse)))
+    }
+    handler.handleRequest(is, os, mock[Context])
 
     eventually {
       os.toString shouldBe """{"outputMsg":"olleh"}"""
@@ -206,10 +207,12 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
-      Right(Future.failed(new IndexOutOfBoundsException("Something is wrong"))))
+    val handler = new Lambda[Ping, Future[Pong]] {
+      override def handle(i: Ping, c: Context): Out =
+        Right(Future.failed(new IndexOutOfBoundsException("Something is wrong")))
+    }
 
-    an[IndexOutOfBoundsException] should be thrownBy handler.handle(is, os, mock[Context])
+    an[IndexOutOfBoundsException] should be thrownBy handler.handleRequest(is, os, mock[Context])
   }
 
   test("should fail when Future takes longer than the execution context is ready to provide") {
@@ -220,13 +223,15 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/ )
 
-    val handler = Lambda.instance[Ping, Future[Pong]]((_, _) =>
-      Right(Future {
-        Thread.sleep(1000)
-        Pong("Not gonna happen")
-      }))
+    val handler = new Lambda[Ping, Future[Pong]] {
+      override def handle(i: Ping, c: Context): Out =
+        Right(Future {
+          Thread.sleep(1000)
+          Pong("Not gonna happen")
+        })
+    }
 
-    an[TimeoutException] should be thrownBy handler.handle(is, os, context)
+    an[TimeoutException] should be thrownBy handler.handleRequest(is, os, context)
   }
 
   test("should do side effects only") {
@@ -235,12 +240,9 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val os      = new ByteArrayOutputStream()
     val context = mock[Context]
 
-    Lambda
-      .instance[None.type, None.type]((_, _) => {
-        done = true
-        Right(None)
-      })
-      .handle(is, os, context)
+    new Lambda[None.type, None.type] {
+      override def handle(i: None.type, c: Context): Out = Right(None)
+    }.handleRequest(is, os, context)
 
     done shouldBe true
   }
