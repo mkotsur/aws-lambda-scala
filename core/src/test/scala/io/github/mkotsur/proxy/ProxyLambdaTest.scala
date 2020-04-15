@@ -106,7 +106,7 @@ class ProxyLambdaTest
       new ProxyRawHandlerWithError().handleRequest(is, os, context)
     }
 
-    caught.getCause.getCause.getMessage shouldEqual "Could not handle this request for some obscure reasons"
+    caught.getCause.getMessage shouldEqual "Could not handle this request for some obscure reasons"
 
     val response = decode[ProxyResponse[String]](os.toString)
     response shouldEqual Right(
@@ -129,7 +129,7 @@ class ProxyLambdaTest
       new ProxyCaseClassHandlerWithError().handleRequest(is, os, mock[Context])
     }
 
-    caught.getCause.getCause.getMessage shouldEqual "Oh boy, something went wrong..."
+    caught.getCause.getMessage shouldEqual "Oh boy, something went wrong..."
 
     val response = decode[ProxyResponse[String]](os.toString)
 

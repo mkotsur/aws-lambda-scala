@@ -34,19 +34,15 @@ abstract class FLambda[F[_], I: CanDecode, O: CanEncode: CanUnwrap[F, *]]
           outputF,
           result => {
             CanEncode[O].writeStream(output, result, context)
-            unwrappedPromise.complete(result.toTry)
+            unwrappedPromise.complete(
+              result.left.map(LambdaFailureException.apply).toTry
+            )
           }
         )
 
-        // TODO: configurable context ???
-        val finallyDoneFuture = {
-          import scala.concurrent.ExecutionContext.Implicits.global
-          unwrappedPromise.future
-            .recoverWith(e => Future.failed(LambdaFailureException(e)))
-        }
-
         // Throws
-        Await.result(finallyDoneFuture, context.getRemainingTimeInMillis millis)
+        Await.result(unwrappedPromise.future,
+                     context.getRemainingTimeInMillis millis)
       }
 
       doneOrDead.left.foreach(

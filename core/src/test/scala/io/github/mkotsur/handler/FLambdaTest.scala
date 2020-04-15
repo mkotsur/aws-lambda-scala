@@ -166,8 +166,7 @@ class FLambdaTest
       new PingPongWithError().handleRequest(is, os, context)
     }
 
-    // TODO: describe boxed exceptions problem
-    caught.getCause.getCause.getMessage shouldEqual "PingPongWithError: Oops"
+    caught.getCause.getMessage shouldEqual "PingPongWithError: Oops"
   }
 
   test("should support handlers of sequences") {
