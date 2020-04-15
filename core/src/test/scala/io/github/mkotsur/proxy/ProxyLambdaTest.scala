@@ -188,7 +188,6 @@ class ProxyLambdaTest
       }.handleRequest(is, os, context)
     }
 
-    // TODO: no boxing happens here...
     thrown.getCause.getMessage shouldBe "Oops"
 
     eventually {
