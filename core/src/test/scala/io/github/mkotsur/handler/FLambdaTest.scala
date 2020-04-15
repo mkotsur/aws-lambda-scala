@@ -13,7 +13,7 @@ import io.circe.generic.auto._
 import io.github.mkotsur.aws.eff.either.ThrowableOr
 import io.github.mkotsur.aws.eff.future.FutureLambda
 import io.github.mkotsur.aws.handler.Lambda._
-import io.github.mkotsur.aws.handler.{FLambda, Lambda}
+import io.github.mkotsur.aws.handler.{FLambda, Lambda, LambdaFailureException}
 import org.mockito.MockitoSugar
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
@@ -159,11 +159,15 @@ class FLambdaTest
     val is = new ByteArrayInputStream("""{ "inputMsg": "HeLLo" }""")
     val os = new ByteArrayOutputStream()
 
-    val caught = intercept[Error] {
-      new PingPongWithError().handleRequest(is, os, mock[Context])
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(1000)
+
+    val caught = intercept[LambdaFailureException] {
+      new PingPongWithError().handleRequest(is, os, context)
     }
 
-    caught.getMessage shouldEqual "The returned value was unsuccessful"
+    // TODO: describe boxed exceptions problem
+    caught.getCause.getCause.getMessage shouldEqual "PingPongWithError: Oops"
   }
 
   test("should support handlers of sequences") {
@@ -220,7 +224,10 @@ class FLambdaTest
       override def handle(ping: Ping, c: Context): Out =
         Future.successful(Pong(ping.inputMsg.reverse))
     }
-    handler.handleRequest(is, os, mock[Context])
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(1000)
+
+    handler.handleRequest(is, os, context)
 
     eventually {
       os.toString shouldBe """{"outputMsg":"olleh"}"""
@@ -236,13 +243,10 @@ class FLambdaTest
       override def handle(i: Ping, c: Context): Out = Future.failed(exception)
     }
 
-    var thrown: Throwable = null
-
-    var thrown1 = Try {
+    val thrown = intercept[LambdaFailureException] {
       handler.handleRequest(is, os, mock[Context])
     }
 
-    thrown.getMessage shouldBe "The returned value was unsuccessful"
     thrown.getCause shouldBe exception
   }
 

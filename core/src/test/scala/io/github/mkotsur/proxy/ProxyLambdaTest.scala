@@ -7,7 +7,7 @@ import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.github.mkotsur.aws.eff.future.FutureLambda
-import io.github.mkotsur.aws.handler.Lambda
+import io.github.mkotsur.aws.handler.{Lambda, LambdaFailureException}
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
 import org.mockito.MockitoSugar
@@ -99,11 +99,14 @@ class ProxyLambdaTest
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
-    val caught = intercept[Error] {
-      new ProxyRawHandlerWithError().handleRequest(is, os, mock[Context])
+    val context = mock[Context]
+    when(context.getRemainingTimeInMillis).thenReturn(1000)
+
+    val caught = intercept[LambdaFailureException] {
+      new ProxyRawHandlerWithError().handleRequest(is, os, context)
     }
 
-    caught.getMessage shouldEqual "The returned value was unsuccessful"
+    caught.getCause.getCause.getMessage shouldEqual "Could not handle this request for some obscure reasons"
 
     val response = decode[ProxyResponse[String]](os.toString)
     response shouldEqual Right(
@@ -122,11 +125,11 @@ class ProxyLambdaTest
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
 
-    val caught = intercept[Error] {
+    val caught = intercept[LambdaFailureException] {
       new ProxyCaseClassHandlerWithError().handleRequest(is, os, mock[Context])
     }
 
-    caught.getMessage shouldEqual "The returned value was unsuccessful"
+    caught.getCause.getCause.getMessage shouldEqual "Oh boy, something went wrong..."
 
     val response = decode[ProxyResponse[String]](os.toString)
 
@@ -178,10 +181,15 @@ class ProxyLambdaTest
     // and there is a convenience class for FutureProxy or smth
     import Lambda.{canDecodeProxyRequest, canEncodeProxyResponse}
 
-    new FutureLambda[ProxyRequest[Ping], ProxyResponse[String]] {
-      override def handle(i: ProxyRequest[Ping], c: Context): Out =
-        Future.failed[ProxyResponse[String]](new RuntimeException("Oops"))
-    }.handleRequest(is, os, context)
+    val thrown = intercept[LambdaFailureException] {
+      new FutureLambda[ProxyRequest[Ping], ProxyResponse[String]] {
+        override def handle(i: ProxyRequest[Ping], c: Context): Out =
+          Future.failed[ProxyResponse[String]](new RuntimeException("Oops"))
+      }.handleRequest(is, os, context)
+    }
+
+    // TODO: no boxing happens here...
+    thrown.getCause.getMessage shouldBe "Oops"
 
     eventually {
       val response = decode[ProxyResponse[String]](os.toString)

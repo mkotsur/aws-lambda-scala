@@ -15,6 +15,7 @@
 * No logging
 * You can't return `Either[Future[_]]` anymore. Pick one of them!
 
+
 Writing a handler for AWS lambda in Scala can be as easy as...
 
 ```scala
