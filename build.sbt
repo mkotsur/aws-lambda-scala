@@ -61,10 +61,6 @@ lazy val `eff-cats-effect` = project
   )
   .dependsOn(`core`)
 
-lazy val `eff-future` = project
-  .in(file("effects/future"))
-  .dependsOn(`core`)
-
 lazy val `example-cats-effect` = project
   .in(file("examples/cats-effect"))
   .settings(
