@@ -13,6 +13,7 @@
 * If an error is thrown in the handler - it will be rethrown.
 * If the effect handler returns a "failure" - it will be logged and rethrown at the "end of the world".
 * No logging
+* You can't return `Either[Future[_]]` anymore. Pick one of them!
 
 Writing a handler for AWS lambda in Scala can be as easy as...
 

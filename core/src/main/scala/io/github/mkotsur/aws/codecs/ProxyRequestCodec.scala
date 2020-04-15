@@ -10,7 +10,7 @@ import shapeless.Generic
 
 import scala.language.postfixOps
 
-private[aws] trait ProxyRequestCodec extends AllCodec with FutureCodec {
+private[aws] trait ProxyRequestCodec extends AllCodec {
 
   /**
     * This is a transformer between case classes and their generic representations [shapeless.HList].
@@ -18,64 +18,74 @@ private[aws] trait ProxyRequestCodec extends AllCodec with FutureCodec {
     */
   def GenericProxyRequestOf[T] = shapeless.Generic[ProxyRequest[T]]
 
-  implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) = CanDecode.instance[ProxyRequest[T]] { is =>
-    {
-      def extractBody(s: ProxyRequest[String]) = s.body match {
-        case Some(bodyString) => canDecode.readStream(new ByteArrayInputStream(bodyString.getBytes)).map(Option.apply)
-        case None             => Right(None)
-      }
-
-      def produceProxyResponse(decodedRequestString: ProxyRequest[String], bodyOption: Option[T]) = {
-        val reqList = Generic[ProxyRequest[String]].to(decodedRequestString)
-        Generic[ProxyRequest[T]].from((bodyOption :: reqList.reverse.tail).reverse)
-      }
-
-      for (decodedRequest$String <- CanDecode[ProxyRequest[String]].readStream(is);
-           decodedBodyOption     <- extractBody(decodedRequest$String))
-        yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
-    }
-  }
-
-  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
-    (output, proxyResponseEither, ctx) => {
-
-      def writeBody(bodyOption: Option[T]): Either[Throwable, Option[String]] =
-        bodyOption match {
+  implicit def canDecodeProxyRequest[T](implicit canDecode: CanDecode[T]) =
+    CanDecode.instance[ProxyRequest[T]] { is =>
+      {
+        def extractBody(s: ProxyRequest[String]) = s.body match {
+          case Some(bodyString) =>
+            canDecode
+              .readStream(new ByteArrayInputStream(bodyString.getBytes))
+              .map(Option.apply)
           case None => Right(None)
-          case Some(body) =>
-            val os     = new ByteArrayOutputStream()
-            val result = canEncode.writeStream(os, Right(body), ctx)
-            os.close()
-            result.map(_ => Some(os.toString()))
         }
 
-      val proxyResponseOrError = for {
-        proxyResponse <- proxyResponseEither
-        bodyOption    <- writeBody(proxyResponse.body)
-      } yield
-        ProxyResponse[String](
-          proxyResponse.statusCode,
-          proxyResponse.headers,
-          bodyOption
-        )
+        def produceProxyResponse(decodedRequestString: ProxyRequest[String],
+                                 bodyOption: Option[T]) = {
+          val reqList = Generic[ProxyRequest[String]].to(decodedRequestString)
+          Generic[ProxyRequest[T]]
+            .from((bodyOption :: reqList.reverse.tail).reverse)
+        }
 
-      val response = proxyResponseOrError match {
-        case Right(proxyResponse) =>
-          proxyResponse
-        case Left(e) =>
-          ProxyResponse[String](
-            500,
-            Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
-            Some(e.getMessage)
-          )
+        for (decodedRequest$String <- CanDecode[ProxyRequest[String]]
+               .readStream(is);
+             decodedBodyOption <- extractBody(decodedRequest$String))
+          yield produceProxyResponse(decodedRequest$String, decodedBodyOption)
       }
-
-      import io.circe.generic.auto._
-      import io.circe.syntax._
-      output.write(response.asJson.noSpaces.getBytes)
-
-      Right(())
     }
-  )
+
+  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) =
+    CanEncode.instance[ProxyResponse[T]](
+      (output, proxyResponseEither, ctx) => {
+
+        def writeBody(
+            bodyOption: Option[T]): Either[Throwable, Option[String]] =
+          bodyOption match {
+            case None => Right(None)
+            case Some(body) =>
+              val os     = new ByteArrayOutputStream()
+              val result = canEncode.writeStream(os, Right(body), ctx)
+              os.close()
+              result.map(_ => Some(os.toString()))
+          }
+
+        val proxyResponseOrError = for {
+          proxyResponse <- proxyResponseEither
+          bodyOption    <- writeBody(proxyResponse.body)
+        } yield
+          ProxyResponse[String](
+            proxyResponse.statusCode,
+            proxyResponse.headers,
+            bodyOption
+          )
+
+        val response = proxyResponseOrError match {
+          case Right(proxyResponse) =>
+            proxyResponse
+          case Left(e) =>
+            ProxyResponse[String](
+              500,
+              Some(Map(
+                "Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
+              Some(e.getMessage)
+            )
+        }
+
+        import io.circe.generic.auto._
+        import io.circe.syntax._
+        output.write(response.asJson.noSpaces.getBytes)
+
+        Right(())
+      }
+    )
 
 }

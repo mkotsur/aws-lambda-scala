@@ -6,10 +6,10 @@ import cats.syntax.either._
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.circe.parser._
+import io.github.mkotsur.aws.eff.future.FutureLambda
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
-import io.github.mkotsur.handler.FLambdaTest.PingPongThrowingAnError
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
@@ -27,9 +27,11 @@ object ProxyLambdaTest {
 
   class ProxyRawHandlerWithError extends Lambda.Proxy[String, String] {
 
-    override def handle(i: ProxyRequest[String], c: Context): Either[Throwable, ProxyResponse[String]] = Left(
-      new Error("Could not handle this request for some obscure reasons")
-    )
+    override def handle(i: ProxyRequest[String],
+                        c: Context): Either[Throwable, ProxyResponse[String]] =
+      Left(
+        new Error("Could not handle this request for some obscure reasons")
+      )
   }
 
   class ProxyCaseClassHandler extends Lambda.Proxy[Ping, Pong] {
@@ -51,7 +53,11 @@ object ProxyLambdaTest {
   case class Pong(outputMsg: String)
 }
 
-class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with Eventually {
+class ProxyLambdaTest
+    extends AnyFunSuite
+    with should.Matchers
+    with MockitoSugar
+    with Eventually {
 
   import ProxyLambdaTest._
   private implicit def string2bytes(s: String): Array[Byte] = s.getBytes()
@@ -72,8 +78,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
   }
 
   test("should handle request and response classes with body of case classes") {
-    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
-    val s       = Source.fromURL(jsonUrl)
+    val jsonUrl =
+      getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -108,8 +115,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
   }
 
   test("should generate error response in case of error in case class handler") {
-    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
-    val s       = Source.fromURL(jsonUrl)
+    val jsonUrl =
+      getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -131,8 +139,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
   }
 
   test("should support Future as output") {
-    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
-    val s       = Source.fromURL(jsonUrl)
+    val jsonUrl =
+      getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -140,11 +149,11 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/ )
 
-    import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
+    import Lambda.{canDecodeProxyRequest, canEncodeProxyResponse}
 
-    new Lambda.Proxy[Ping, Future[Pong]] {
+    new FutureLambda[ProxyRequest[Ping], ProxyResponse[Pong]] {
       override def handle(i: ProxyRequest[Ping], c: Context): Out =
-        Right(ProxyResponse.success(Some(Future.successful(Pong("4")))))
+        Future.successful(ProxyResponse.success(Some(Pong("4"))))
     }.handleRequest(is, os, context)
 
     eventually {
@@ -155,8 +164,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
   }
 
   test("should support failed Future as output") {
-    val jsonUrl = getClass.getClassLoader.getResource("proxyInput-case-class.json")
-    val s       = Source.fromURL(jsonUrl)
+    val jsonUrl =
+      getClass.getClassLoader.getResource("proxyInput-case-class.json")
+    val s = Source.fromURL(jsonUrl)
 
     val is = new ByteArrayInputStream(s.mkString)
     val os = new ByteArrayOutputStream()
@@ -164,11 +174,13 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/ )
 
-    import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
+    //TODO: Make sure this import is not needed
+    // and there is a convenience class for FutureProxy or smth
+    import Lambda.{canDecodeProxyRequest, canEncodeProxyResponse}
 
-    new Lambda.Proxy[Ping, Future[String]] {
+    new FutureLambda[ProxyRequest[Ping], ProxyResponse[String]] {
       override def handle(i: ProxyRequest[Ping], c: Context): Out =
-        Right(ProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops")))))
+        Future.failed[ProxyResponse[String]](new RuntimeException("Oops"))
     }.handleRequest(is, os, context)
 
     eventually {

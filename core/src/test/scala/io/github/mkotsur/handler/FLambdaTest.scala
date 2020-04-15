@@ -1,11 +1,17 @@
 package io.github.mkotsur.handler
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream}
+import java.io.{
+  ByteArrayInputStream,
+  ByteArrayOutputStream,
+  InputStream,
+  OutputStream
+}
 import java.util.concurrent.TimeoutException
 
 import com.amazonaws.services.lambda.runtime.Context
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.eff.either.ThrowableOr
+import io.github.mkotsur.aws.eff.future.FutureLambda
 import io.github.mkotsur.aws.handler.Lambda._
 import io.github.mkotsur.aws.handler.{FLambda, Lambda}
 import org.mockito.MockitoSugar
@@ -22,23 +28,29 @@ object FLambdaTest {
   import io.github.mkotsur.aws.eff.either.canUnwrapEither
 
   private class PingPong extends FLambda[ThrowableOr, Ping, Pong]() {
-    override def handle(ping: Ping, c: Context): Out = Right(Pong(ping.inputMsg.reverse))
+    override def handle(ping: Ping, c: Context): Out =
+      Right(Pong(ping.inputMsg.reverse))
   }
 
   private class PingPongWithError extends FLambda[ThrowableOr, Ping, Pong] {
-    override def handle(ping: Ping, c: Context) = Left(new Error("PingPongWithError: Oops"))
+    override def handle(ping: Ping, c: Context) =
+      Left(new Error("PingPongWithError: Oops"))
   }
 
-  private class PingPongThrowingAnError extends FLambda[ThrowableOr, Ping, Pong] {
-    override def handle(ping: Ping, c: Context) = throw new Error("PingPongThrowingAnError: Oops")
+  private class PingPongThrowingAnError
+      extends FLambda[ThrowableOr, Ping, Pong] {
+    override def handle(ping: Ping, c: Context) =
+      throw new Error("PingPongThrowingAnError: Oops")
   }
 
   private class StringPong extends FLambda[ThrowableOr, String, Pong] {
-    override def handle(input: String, c: Context) = Right(Pong(input.toUpperCase()))
+    override def handle(input: String, c: Context) =
+      Right(Pong(input.toUpperCase()))
   }
 
   private class PingString extends FLambda[ThrowableOr, Ping, String] {
-    override def handle(input: Ping, c: Context) = Right(input.inputMsg.toLowerCase())
+    override def handle(input: Ping, c: Context) =
+      Right(input.inputMsg.toLowerCase())
   }
 
   private class PingNothing extends FLambda[ThrowableOr, Ping, Unit] {
@@ -50,7 +62,8 @@ object FLambdaTest {
   }
 
   private class SeqSeq extends FLambda[ThrowableOr, Seq[String], Seq[Int]] {
-    override def handle(strings: Seq[String], c: Context): Either[Throwable, Seq[Int]] =
+    override def handle(strings: Seq[String],
+                        c: Context): Either[Throwable, Seq[Int]] =
       Try {
         strings.map(_.toInt)
       } match {
@@ -59,7 +72,8 @@ object FLambdaTest {
       }
   }
 
-  private class OptionOption extends FLambda[ThrowableOr, Option[Ping], Option[Pong]] {
+  private class OptionOption
+      extends FLambda[ThrowableOr, Option[Ping], Option[Pong]] {
     override def handle(input: Option[Ping], c: Context) = Right(
       input.map { ping =>
         Pong(ping.inputMsg.length.toString)
@@ -73,7 +87,12 @@ object FLambdaTest {
 
 }
 
-class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar with OptionValues with Eventually {
+class FLambdaTest
+    extends AnyFunSuite
+    with should.Matchers
+    with MockitoSugar
+    with OptionValues
+    with Eventually {
 
   import FLambdaTest._
 
@@ -92,7 +111,10 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
   test("should allow to call 'handle()' via reflection") {
     val handlerClass = Class.forName(classOf[PingPong].getName)
     val handlerMethod =
-      handlerClass.getMethod("handleRequest", classOf[InputStream], classOf[OutputStream], classOf[Context])
+      handlerClass.getMethod("handleRequest",
+                             classOf[InputStream],
+                             classOf[OutputStream],
+                             classOf[Context])
 
     val handlerInstance = handlerClass.getConstructor().newInstance()
 
@@ -156,7 +178,8 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
 
   test("should inject context when overriding the appropriate method") {
     val handler = new Lambda[Int, String] {
-      override def handle(input: Int, context: Context): Either[Throwable, String] =
+      override def handle(input: Int,
+                          context: Context): Either[Throwable, String] =
         Right(s"${context.getFunctionName}: $input")
     }
 
@@ -193,8 +216,9 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
 
-    val handler = new Lambda[Ping, Future[Pong]] {
-      override def handle(ping: Ping, c: Context): Out = Right(Future.successful(Pong(ping.inputMsg.reverse)))
+    val handler = new FutureLambda[Ping, Pong] {
+      override def handle(ping: Ping, c: Context): Out =
+        Future.successful(Pong(ping.inputMsg.reverse))
     }
     handler.handleRequest(is, os, mock[Context])
 
@@ -204,18 +228,26 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
   }
 
   test("should support failed Future as output") {
-    val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
-    val os = new ByteArrayOutputStream()
+    val is        = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
+    val os        = new ByteArrayOutputStream()
+    val exception = new IndexOutOfBoundsException("Something is wrong")
 
-    val handler = new Lambda[Ping, Future[Pong]] {
-      override def handle(i: Ping, c: Context): Out =
-        Right(Future.failed(new IndexOutOfBoundsException("Something is wrong")))
+    val handler = new FutureLambda[Ping, Pong] {
+      override def handle(i: Ping, c: Context): Out = Future.failed(exception)
     }
 
-    an[IndexOutOfBoundsException] should be thrownBy handler.handleRequest(is, os, mock[Context])
+    var thrown: Throwable = null
+
+    var thrown1 = Try {
+      handler.handleRequest(is, os, mock[Context])
+    }
+
+    thrown.getMessage shouldBe "The returned value was unsuccessful"
+    thrown.getCause shouldBe exception
   }
 
-  test("should fail when Future takes longer than the execution context is ready to provide") {
+  test(
+    "should fail when Future takes longer than the execution context is ready to provide") {
     import scala.concurrent.ExecutionContext.Implicits.global
     val is = new ByteArrayInputStream("""{ "inputMsg": "hello" }""")
     val os = new ByteArrayOutputStream()
@@ -223,15 +255,17 @@ class FLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar wit
     val context = mock[Context]
     when(context.getRemainingTimeInMillis).thenReturn(500 /*ms*/ )
 
-    val handler = new Lambda[Ping, Future[Pong]] {
+    val handler = new FutureLambda[Ping, Pong] {
       override def handle(i: Ping, c: Context): Out =
-        Right(Future {
+        Future {
           Thread.sleep(1000)
           Pong("Not gonna happen")
-        })
+        }
     }
 
-    an[TimeoutException] should be thrownBy handler.handleRequest(is, os, context)
+    an[TimeoutException] should be thrownBy handler.handleRequest(is,
+                                                                  os,
+                                                                  context)
   }
 
   test("should do side effects only") {
