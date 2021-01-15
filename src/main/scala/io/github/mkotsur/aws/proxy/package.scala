@@ -1,28 +1,28 @@
 package io.github.mkotsur.aws
 
+import io.circe.{Decoder, Json}
+
 package object proxy {
   case class RequestContextAuthorizer(
       principalId: String
   )
 
   case class RequestContext(
-      authorizer: Option[RequestContextAuthorizer] = None
+      authorizer: Option[RequestContextAuthorizer]
   )
-
-  object RequestContext {
-    def withPrincipalId(id: String) = RequestContext(Some(RequestContextAuthorizer(id)))
-  }
 
   case class RequestInput(body: String)
 
-  case class ProxyRequest[T](
+  type ProxyRequest[T] = ApiProxyRequest[T, Json]
+
+  case class ApiProxyRequest[T, C: Decoder](
       path: String,
       pathParameters: Option[Map[String, String]] = None,
       httpMethod: String,
       headers: Option[Map[String, String]] = None,
       queryStringParameters: Option[Map[String, String]] = None,
       stageVariables: Option[Map[String, String]] = None,
-      requestContext: RequestContext = RequestContext(),
+      requestContext: C,
       body: Option[T] = None
   )
 

@@ -1,13 +1,13 @@
 package io.github.mkotsur.aws.handler
 
 import java.io.{InputStream, OutputStream}
-
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
 import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
-import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
+import io.github.mkotsur.aws.proxy.{ApiProxyRequest, ProxyResponse}
 import org.slf4j.LoggerFactory
 import cats.syntax.either.catsSyntaxEither
+import io.circe.Json
 import io.github.mkotsur.aws.handler.Lambda.HandleResult
 
 import scala.language.{higherKinds, postfixOps}
@@ -15,21 +15,20 @@ import scala.util.{Failure, Success, Try}
 
 object Lambda extends AllCodec with ProxyRequestCodec {
 
-  type Handle[I, O]    = (I, Context) => HandleResult[O]
-  type HandleResult[O] = Either[Throwable, O]
-  type Proxy[I, O]     = Lambda[ProxyRequest[I], ProxyResponse[O]]
+  type Handle[I, O]      = (I, Context) => HandleResult[O]
+  type HandleResult[O]   = Either[Throwable, O]
+  type ApiProxy[I, C, O] = Lambda[ApiProxyRequest[I, C], ProxyResponse[O]]
 
   object Proxy {
-    type Handle[I, O]    = (ProxyRequest[I], Context) => HandleResult[O]
+    type Handle[I, C, O] = (ApiProxyRequest[I, C], Context) => HandleResult[O]
     type HandleResult[O] = Either[Throwable, ProxyResponse[O]]
 
-    private type CanDecodeProxyRequest[A] = CanDecode[ProxyRequest[A]]
-    private type CanEncodeProxyRequest[A] = CanEncode[ProxyResponse[A]]
+    private type CanEncodeProxyResponse[A] = CanEncode[ProxyResponse[A]]
 
-    def instance[I: CanDecodeProxyRequest, O: CanEncodeProxyRequest](
-        doHandle: Proxy.Handle[I, O]): Lambda[ProxyRequest[I], ProxyResponse[O]] =
-      new Lambda.Proxy[I, O] {
-        override protected def handle(i: ProxyRequest[I], c: Context) = doHandle(i, c)
+    def instance[I: CanDecode, C: CanDecode, O: CanEncodeProxyResponse](doHandle: Proxy.Handle[I, C, O])(
+        implicit canDecodeFullReq: CanDecode[ApiProxyRequest[I, C]]): Lambda[ApiProxyRequest[I, C], ProxyResponse[O]] =
+      new Lambda.ApiProxy[I, C, O] {
+        override protected def handle(i: ApiProxyRequest[I, C], c: Context) = doHandle(i, c)
       }
   }
 
@@ -53,8 +52,8 @@ abstract class Lambda[I: CanDecode, O: CanEncode] extends RequestStreamHandler {
 
   /**
     * Either of the following two methods should be overridden,
-    * if ths one is overriden, its implementation will be called from `handleRequest`, and `handle(i: I)` will never be used..
-    * if the `handle(i: I)` is overriden, this method will delegate to that one and NotImplementedError will not occur.
+    * if ths one is overridden, its implementation will be called from `handleRequest`, and `handle(i: I)` will never be used..
+    * if the `handle(i: I)` is overridden, this method will delegate to that one and NotImplementedError will not occur.
     */
   protected def handle(i: I, c: Context): Either[Throwable, O] = handle(i)
 
