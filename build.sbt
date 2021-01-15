@@ -12,8 +12,8 @@ publishTo := Some(
 )
 
 val scalaV211 = "2.11.12"
-val scalaV212 = "2.12.7"
-val scalaV213 = "2.13.1"
+val scalaV212 = "2.12.13"
+val scalaV213 = "2.13.4"
 scalaVersion := scalaV213
 crossScalaVersions := Seq(scalaV211, scalaV212, scalaV213)
 
@@ -65,3 +65,5 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.0" % "test"
 libraryDependencies += "org.mockito" %% "mockito-scala" % "1.10.0" % "test"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3" % "test"
+
+libraryDependencies += "com.github.pathikrit" %% "better-files" % "3.9.1" % "test"
