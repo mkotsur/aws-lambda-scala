@@ -6,6 +6,7 @@ import io.github.mkotsur.aws.codecs._
 import io.github.mkotsur.aws.proxy.{ApiProxyRequest, ApiProxyResponse}
 import org.slf4j.LoggerFactory
 import io.github.mkotsur.aws.handler.Lambda.HandleResult
+import cats.syntax.either.catsSyntaxEither
 
 import scala.language.{higherKinds, postfixOps}
 import scala.util.{Failure, Success, Try}
