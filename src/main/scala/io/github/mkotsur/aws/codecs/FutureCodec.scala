@@ -5,7 +5,7 @@ import java.nio.charset.Charset
 
 import io.circe.Encoder
 import io.github.mkotsur.aws.handler.CanEncode
-import io.github.mkotsur.aws.proxy.ProxyResponse
+import io.github.mkotsur.aws.proxy.ApiProxyResponse
 import io.circe.generic.auto._
 import io.circe.syntax._
 import cats.syntax.either.catsSyntaxEither
@@ -31,7 +31,7 @@ private[aws] trait FutureCodec {
       }
     })
 
-  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ProxyResponse[T]](
+  implicit def canEncodeProxyResponse[T](implicit canEncode: CanEncode[T]) = CanEncode.instance[ApiProxyResponse[T]](
     (output, proxyResponseEither, ctx) => {
 
       def writeBody(bodyOption: Option[T]): Either[Throwable, Option[String]] =
@@ -48,7 +48,7 @@ private[aws] trait FutureCodec {
         proxyResponse <- proxyResponseEither
         bodyOption    <- writeBody(proxyResponse.body)
       } yield
-        ProxyResponse[String](
+        ApiProxyResponse[String](
           proxyResponse.statusCode,
           proxyResponse.headers,
           bodyOption
@@ -58,7 +58,7 @@ private[aws] trait FutureCodec {
         case Right(proxyRespose) =>
           proxyRespose
         case Left(e) =>
-          ProxyResponse[String](
+          ApiProxyResponse[String](
             500,
             Some(Map("Content-Type" -> s"text/plain; charset=${Charset.defaultCharset().name()}")),
             Some(e.getMessage)

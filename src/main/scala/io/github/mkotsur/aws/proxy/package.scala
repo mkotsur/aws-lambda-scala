@@ -1,40 +1,38 @@
 package io.github.mkotsur.aws
 
+import io.circe.{Decoder}
+
 package object proxy {
   case class RequestContextAuthorizer(
       principalId: String
   )
 
   case class RequestContext(
-      authorizer: Option[RequestContextAuthorizer] = None
+      authorizer: Option[RequestContextAuthorizer]
   )
-
-  object RequestContext {
-    def withPrincipalId(id: String) = RequestContext(Some(RequestContextAuthorizer(id)))
-  }
 
   case class RequestInput(body: String)
 
-  case class ProxyRequest[T](
+  case class ApiProxyRequest[B, C: Decoder](
       path: String,
       pathParameters: Option[Map[String, String]] = None,
       httpMethod: String,
       headers: Option[Map[String, String]] = None,
       queryStringParameters: Option[Map[String, String]] = None,
       stageVariables: Option[Map[String, String]] = None,
-      requestContext: RequestContext = RequestContext(),
-      body: Option[T] = None
+      requestContext: C,
+      body: Option[B] = None
   )
 
-  case class ProxyResponse[T](
+  case class ApiProxyResponse[T](
       statusCode: Int,
       headers: Option[Map[String, String]] = None,
       body: Option[T] = None
   )
 
-  object ProxyResponse {
+  object ApiProxyResponse {
 
-    def success[B](body: Option[B] = None): ProxyResponse[B] = ProxyResponse[B](
+    def success[B](body: Option[B] = None): ApiProxyResponse[B] = ApiProxyResponse[B](
       statusCode = 200,
       headers = Some(Map("Access-Control-Allow-Origin" -> "*")),
       body = body

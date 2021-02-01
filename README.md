@@ -34,8 +34,6 @@ Features:
 * [AWS API Gateway proxy integration](http://docs.aws.amazon.com/apigateway/latest/developerguide/integrating-api-with-aws-services-lambda.html);
 * Uncaught errors are logged with SLF4J and re-thrown.
 
-More docs are coming soon... Feel free to look at `src/test/scala` if you want to use it right now.
-
 ## Examples
 
 ### Returning futures
@@ -68,14 +66,62 @@ import io.github.mkotsur.aws.handler.Lambda
 import com.amazonaws.services.lambda.runtime.Context
 
 class NothingToNothingHandler extends Lambda[None.type, None.type] {
-
-  override def handle(_: None.type , context: Context) = {
-    println("Only side effects") 
+  
+  override protected def handle(i: None.type, c: Context) = {
+    println("Only side effects")
     Right(None)
   }
-    
+
 }
 ```
+
+### API Gateway proxy integration
+
+You can write less boilerplate when implementing a handler for API Gateway proxy events by extending `Lambda.ApiProxy[I, C, O]`. There are three type parameters there. The first one (`I`) corresponds to the `body` field of the `API Gateway proxy event`, the second one (`C`) corresponds to `requestContext` field, and the third one – to the `body` in the response object. More info about how the even looks like [here](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html).
+
+```scala
+import io.circe.generic.auto._
+import io.circe.Json
+import io.github.mkotsur.aws.handler.Lambda._
+import io.github.mkotsur.aws.proxy._
+import io.github.mkotsur.aws.handler.Lambda
+import com.amazonaws.services.lambda.runtime.Context
+import MyProxy._
+
+object MyProxy {
+
+  case class MyRequestBody(name: String)
+
+  case class MyResponseBody(score: Int)
+
+}
+
+class MyProxy extends Lambda.ApiProxy[MyRequestBody, Json, MyResponseBody] {
+  override def handle(
+                                 i: ApiProxyRequest[MyRequestBody, Json],
+                                 c: Context
+                               ): Either[Throwable, ApiProxyResponse[MyResponseBody]] =
+    i.body match {
+      case Some(MyRequestBody("Bob")) =>
+        Right(ApiProxyResponse.success(Some(MyResponseBody(100))))
+      case Some(MyRequestBody("Alice")) =>
+        Right(ApiProxyResponse.success(Some(MyResponseBody(50))))
+      case Some(_) =>
+        Right(ApiProxyResponse(404))
+      case None =>
+        Left(new IllegalArgumentException)
+    }
+}
+
+```
+
+Tip 1: of course, you can also pass a type defined by a case class into the second type parameter. Please check #24 and `src/test/scala/io/github/mkotsur/aws/proxy/ProxyRequestTest.scala` for an example.
+
+Tip 2: Don't forget that `Lambda.ApiProxy` is a very thin wrapper around `Lambda`, so if something in `ApiProxyRequest` or `ApiProxyResponse` doesn't work for you - feel free to define your own case classes (and if you believe that the use case is generic enough – consider contributing back to the library).
+
+### Other usages
+
+Feel free to look at `src/test/scala` for more examples. And of course, contributions to the docs are welcome!
 
 
 ## Adding to your project

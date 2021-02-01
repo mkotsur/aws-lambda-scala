@@ -1,15 +1,15 @@
 package io.github.mkotsur
 
 import java.io.ByteArrayOutputStream
-
 import cats.syntax.either._
 import com.amazonaws.services.lambda.runtime.Context
+import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.github.mkotsur.ProxyLambdaTest._
 import io.github.mkotsur.aws.handler.Lambda
 import io.github.mkotsur.aws.handler.Lambda._
-import io.github.mkotsur.aws.proxy.{ProxyRequest, ProxyResponse}
+import io.github.mkotsur.aws.proxy.{ApiProxyRequest, ApiProxyResponse, RequestContext}
 import org.scalatest.concurrent.Eventually
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should
@@ -20,28 +20,30 @@ import scala.io.Source
 
 object ProxyLambdaTest {
 
-  class ProxyRawHandler extends Lambda.Proxy[String, String] {
-    override protected def handle(input: ProxyRequest[String]) =
-      Right(ProxyResponse(200, None, input.body.map(_.toUpperCase())))
+  class ProxyRawHandler extends Lambda.ApiProxy[String, RequestContext, String] {
+    override protected def handle(input: ApiProxyRequest[String, RequestContext]) =
+      Right(ApiProxyResponse(200, None, input.body.map(_.toUpperCase())))
   }
 
-  class ProxyRawHandlerWithError extends Lambda.Proxy[String, String] {
+  class ProxyRawHandlerWithError extends Lambda.ApiProxy[String, RequestContext, String] {
 
-    override protected def handle(i: ProxyRequest[String]): Either[Throwable, ProxyResponse[String]] = Left(
-      new Error("Could not handle this request for some obscure reasons")
-    )
+    override protected def handle(
+        i: ApiProxyRequest[String, RequestContext]): Either[Throwable, ApiProxyResponse[String]] =
+      Left(
+        new Error("Could not handle this request for some obscure reasons")
+      )
   }
 
-  class ProxyCaseClassHandler extends Lambda.Proxy[Ping, Pong] {
-    override protected def handle(input: ProxyRequest[Ping]) = Right(
-      ProxyResponse(200, None, input.body.map { ping =>
+  class ProxyCaseClassHandler extends Lambda.ApiProxy[Ping, RequestContext, Pong] {
+    override protected def handle(input: ApiProxyRequest[Ping, RequestContext]) = Right(
+      ApiProxyResponse(200, None, input.body.map { ping =>
         Pong(ping.inputMsg.length.toString)
       })
     )
   }
 
-  class ProxyCaseClassHandlerWithError extends Lambda.Proxy[Ping, Pong] {
-    override protected def handle(input: ProxyRequest[Ping]) = Left(
+  class ProxyCaseClassHandlerWithError extends Lambda.ApiProxy[Ping, RequestContext, Pong] {
+    override protected def handle(input: ApiProxyRequest[Ping, RequestContext]) = Left(
       new Error("Oh boy, something went wrong...")
     )
   }
@@ -91,9 +93,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
 
     new ProxyRawHandlerWithError().handle(is, os, mock[Context])
 
-    val response = decode[ProxyResponse[String]](os.toString)
+    val response = decode[ApiProxyResponse[String]](os.toString)
     response shouldEqual Right(
-      ProxyResponse(
+      ApiProxyResponse(
         500,
         Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
         Some("Could not handle this request for some obscure reasons")
@@ -109,10 +111,10 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
 
     new ProxyCaseClassHandlerWithError().handle(is, os, mock[Context])
 
-    val response = decode[ProxyResponse[String]](os.toString)
+    val response = decode[ApiProxyResponse[String]](os.toString)
 
     response shouldEqual Right(
-      ProxyResponse(
+      ApiProxyResponse(
         500,
         Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
         Some("Oh boy, something went wrong...")
@@ -131,8 +133,10 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
 
     import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
 
-    val function: (ProxyRequest[Ping], Context) => Either[Throwable, ProxyResponse[Future[Pong]]] =
-      (_: ProxyRequest[Ping], _) => Right(ProxyResponse.success(Some(Future.successful(Pong("4")))))
+    val function
+      : (ApiProxyRequest[Ping, RequestContext], Context) => Either[Throwable, ApiProxyResponse[Future[Pong]]] =
+      (_: ApiProxyRequest[Ping, RequestContext], _) =>
+        Right(ApiProxyResponse.success(Some(Future.successful(Pong("4")))))
     Lambda.Proxy.instance(function).handle(is, os, context)
 
     eventually {
@@ -155,16 +159,16 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     import Lambda.{canDecodeProxyRequest, canEncodeFuture, canEncodeProxyResponse}
 
     Lambda.Proxy
-      .instance((_: ProxyRequest[Ping], _: Context) => {
-        val response = ProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops"))))
+      .instance((_: ApiProxyRequest[Ping, RequestContext], _: Context) => {
+        val response = ApiProxyResponse.success(Some(Future.failed[String](new RuntimeException("Oops"))))
         Either.right(response)
       })
       .handle(is, os, context)
 
     eventually {
-      val response = decode[ProxyResponse[String]](os.toString)
+      val response = decode[ApiProxyResponse[String]](os.toString)
       response shouldEqual Either.right(
-        ProxyResponse(
+        ApiProxyResponse(
           500,
           Some(Map("Content-Type" -> s"text/plain; charset=UTF-8")),
           Some("Oops")
@@ -185,8 +189,8 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
     import Lambda.{canDecodeProxyRequest, canEncodeProxyResponse}
 
     Lambda.Proxy
-      .instance[None.type, None.type]((_, _) => {
-        val response = ProxyResponse[None.type](
+      .instance[None.type, RequestContext, None.type]((_, _) => {
+        val response = ApiProxyResponse[None.type](
           statusCode = 200,
           body = None
         )
@@ -195,9 +199,9 @@ class ProxyLambdaTest extends AnyFunSuite with should.Matchers with MockitoSugar
       .handle(is, os, context)
 
     eventually {
-      val response = decode[ProxyResponse[None.type]](os.toString)
+      val response = decode[ApiProxyResponse[None.type]](os.toString)
       response shouldEqual Either.right(
-        ProxyResponse(
+        ApiProxyResponse(
           statusCode = 200,
           body = None
         ))
