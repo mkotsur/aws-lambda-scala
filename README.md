@@ -97,7 +97,7 @@ object MyProxy {
 }
 
 class MyProxy extends Lambda.ApiProxy[MyRequestBody, Json, MyResponseBody] {
-  override protected def handle(
+  override def handle(
                                  i: ApiProxyRequest[MyRequestBody, Json],
                                  c: Context
                                ): Either[Throwable, ApiProxyResponse[MyResponseBody]] =
