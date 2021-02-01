@@ -1,6 +1,6 @@
 package io.github.mkotsur.aws
 
-import io.circe.{Decoder, Json}
+import io.circe.{Decoder}
 
 package object proxy {
   case class RequestContextAuthorizer(
@@ -13,9 +13,7 @@ package object proxy {
 
   case class RequestInput(body: String)
 
-  type ProxyRequest[T] = ApiProxyRequest[T, Json]
-
-  case class ApiProxyRequest[T, C: Decoder](
+  case class ApiProxyRequest[B, C: Decoder](
       path: String,
       pathParameters: Option[Map[String, String]] = None,
       httpMethod: String,
@@ -23,18 +21,18 @@ package object proxy {
       queryStringParameters: Option[Map[String, String]] = None,
       stageVariables: Option[Map[String, String]] = None,
       requestContext: C,
-      body: Option[T] = None
+      body: Option[B] = None
   )
 
-  case class ProxyResponse[T](
+  case class ApiProxyResponse[T](
       statusCode: Int,
       headers: Option[Map[String, String]] = None,
       body: Option[T] = None
   )
 
-  object ProxyResponse {
+  object ApiProxyResponse {
 
-    def success[B](body: Option[B] = None): ProxyResponse[B] = ProxyResponse[B](
+    def success[B](body: Option[B] = None): ApiProxyResponse[B] = ApiProxyResponse[B](
       statusCode = 200,
       headers = Some(Map("Access-Control-Allow-Origin" -> "*")),
       body = body

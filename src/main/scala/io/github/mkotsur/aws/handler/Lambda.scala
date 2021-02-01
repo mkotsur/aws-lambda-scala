@@ -2,12 +2,9 @@ package io.github.mkotsur.aws.handler
 
 import java.io.{InputStream, OutputStream}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import io.circe.generic.auto._
 import io.github.mkotsur.aws.codecs._
-import io.github.mkotsur.aws.proxy.{ApiProxyRequest, ProxyResponse}
+import io.github.mkotsur.aws.proxy.{ApiProxyRequest, ApiProxyResponse}
 import org.slf4j.LoggerFactory
-import cats.syntax.either.catsSyntaxEither
-import io.circe.Json
 import io.github.mkotsur.aws.handler.Lambda.HandleResult
 
 import scala.language.{higherKinds, postfixOps}
@@ -17,16 +14,17 @@ object Lambda extends AllCodec with ProxyRequestCodec {
 
   type Handle[I, O]      = (I, Context) => HandleResult[O]
   type HandleResult[O]   = Either[Throwable, O]
-  type ApiProxy[I, C, O] = Lambda[ApiProxyRequest[I, C], ProxyResponse[O]]
+  type ApiProxy[I, C, O] = Lambda[ApiProxyRequest[I, C], ApiProxyResponse[O]]
 
   object Proxy {
     type Handle[I, C, O] = (ApiProxyRequest[I, C], Context) => HandleResult[O]
-    type HandleResult[O] = Either[Throwable, ProxyResponse[O]]
+    type HandleResult[O] = Either[Throwable, ApiProxyResponse[O]]
 
-    private type CanEncodeProxyResponse[A] = CanEncode[ProxyResponse[A]]
+    private type CanEncodeProxyResponse[A] = CanEncode[ApiProxyResponse[A]]
 
     def instance[I: CanDecode, C: CanDecode, O: CanEncodeProxyResponse](doHandle: Proxy.Handle[I, C, O])(
-        implicit canDecodeFullReq: CanDecode[ApiProxyRequest[I, C]]): Lambda[ApiProxyRequest[I, C], ProxyResponse[O]] =
+        implicit canDecodeFullReq: CanDecode[ApiProxyRequest[I, C]])
+      : Lambda[ApiProxyRequest[I, C], ApiProxyResponse[O]] =
       new Lambda.ApiProxy[I, C, O] {
         override protected def handle(i: ApiProxyRequest[I, C], c: Context) = doHandle(i, c)
       }
