@@ -13,7 +13,7 @@ publishTo := Some(
 
 val scalaV211 = "2.11.12"
 val scalaV212 = "2.12.13"
-val scalaV213 = "2.13.4"
+val scalaV213 = "2.13.14"
 scalaVersion := scalaV213
 crossScalaVersions := Seq(scalaV211, scalaV212, scalaV213)
 
@@ -40,7 +40,7 @@ fork in Test := true
 
 javaOptions in Test ++= Seq("-Dfile.encoding=UTF-8")
 
-val circeVersion       = "0.12.3"
+val circeVersion       = "0.14.9"
 val circeVersionCompat = "0.11.2"
 
 libraryDependencies ++= Seq(
